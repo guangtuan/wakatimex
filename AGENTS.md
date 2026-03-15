@@ -22,6 +22,7 @@
 - 这个 compose 会挂载 `src/`，前端改动通常不需要重启容器，直接刷新页面即可
 - 改 JS 后先跑：`node --check src/wakatime_sync/web/assets/app.js`
 - 需要验证运行中资源时，优先用容器内请求：`docker compose -f compose.yaml exec -T app python - <<'PY' ... PY`
+- 导出本地 MySQL SQL 文件：`./export-db.sh`（可选输出路径参数）
 - 本地依赖前提：`compose.yaml` 已内置 MySQL 8；WakaTime key 来自 `~/.wakatime.cfg` 或环境变量
 
 ## 代码品味和偏好
