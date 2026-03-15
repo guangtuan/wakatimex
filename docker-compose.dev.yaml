@@ -1,0 +1,31 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: "0.0.0-dev"
+    container_name: wakatime-sync-dev
+    ports:
+      - "9506:9506"
+    environment:
+      APP_ENV: dev
+      APP_PORT: 9506
+      APP_TIMEZONE: UTC
+      MYSQL_DSN: mysql://root:123456@host.docker.internal:3306/wakatime_sync
+      WAKATIME_API_BASE: https://api.wakatime.com/api/v1
+    volumes:
+      - ./src:/app/src
+      - ${HOME}/.wakatime.cfg:/root/.wakatime.cfg:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command:
+      [
+        "uvicorn",
+        "wakatime_sync.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "9506",
+        "--reload"
+      ]

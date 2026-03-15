@@ -1,0 +1,928 @@
+const versionEl = document.getElementById('version');
+const lastSyncEl = document.getElementById('last-sync');
+const syncBtn = document.getElementById('sync-btn');
+const todayActiveEl = document.getElementById('today-active');
+const todayHeartbeatsEl = document.getElementById('today-heartbeats');
+const weekActiveEl = document.getElementById('week-active');
+const bestDayEl = document.getElementById('best-day');
+const totalHeartbeatsEl = document.getElementById('total-heartbeats');
+const totalHeartbeatsDetailEl = document.getElementById('total-heartbeats-detail');
+const topLanguagesEl = document.getElementById('top-languages');
+const topProjectsEl = document.getElementById('top-projects');
+const topEditorsEl = document.getElementById('top-editors');
+const dailyCalendarGridEl = document.getElementById('daily-calendar-grid');
+const calendarMonthLabelEl = document.getElementById('calendar-month-label');
+const prevMonthBtn = document.getElementById('prev-month-btn');
+const nextMonthBtn = document.getElementById('next-month-btn');
+const calendarSidePanelEl = document.getElementById('calendar-side-panel');
+const calendarHoverTitleEl = document.getElementById('calendar-hover-title');
+const calendarHoverSummaryEl = document.getElementById('calendar-hover-summary');
+const calendarHoverLanguagesEl = document.getElementById('calendar-hover-languages');
+const calendarHoverProjectsEl = document.getElementById('calendar-hover-projects');
+const langSwitchEl = document.getElementById('lang-switch');
+const langEnBtn = document.getElementById('lang-en-btn');
+const langZhBtn = document.getElementById('lang-zh-btn');
+
+let languageChart = null;
+let projectChart = null;
+let currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let currentSelectedDate = null;
+let previewRequestToken = 0;
+
+const dailyBreakdownCache = new Map();
+const LANGUAGE_STORAGE_KEY = 'wakatime-sync.lang';
+const SUPPORTED_LANGUAGES = new Set(['en', 'zh']);
+
+const COLORS = [
+  '#2da44e', '#0969da', '#8250df', '#bc4c00', '#cf222e',
+  '#1b7f83', '#9a6700', '#57606a', '#1f883d', '#0550ae',
+];
+
+const DEFAULT_LANGUAGE_COLOR_MAP = {
+  python: '#3572A5',
+  markdown: '#083fa1',
+  java: '#b07219',
+  javascript: '#f1e05a',
+  typescript: '#3178c6',
+  go: '#00ADD8',
+  shell: '#89e051',
+  bash: '#89e051',
+  json: '#292929',
+  yaml: '#cb171e',
+  yml: '#cb171e',
+  html: '#e34c26',
+  css: '#663399',
+  scss: '#c6538c',
+  sql: '#e38c00',
+  xml: '#0060ac',
+  plaintext: '#6e7781',
+  text: '#6e7781',
+  dockerfile: '#384d54',
+  toml: '#9c4221',
+  rust: '#dea584',
+  kotlin: '#A97BFF',
+  swift: '#F05138',
+  c: '#555555',
+  'c++': '#f34b7d',
+  csharp: '#178600',
+  'c#': '#178600',
+};
+
+let languageColorMap = { ...DEFAULT_LANGUAGE_COLOR_MAP };
+let languageColorsPromise = null;
+
+const I18N = {
+  en: {
+    doc: {
+      title: 'WakaTime Activity',
+    },
+    brand: {
+      activity: 'Activity',
+    },
+    nav: {
+      lang_switch_label: 'Language switch',
+    },
+    hero: {
+      title: 'Activity Overview',
+    },
+    summary: {
+      today: 'Today',
+      selected_month: 'Selected Month',
+      best_prefix: 'Best:',
+      total_heartbeats: 'Total Heartbeats',
+      this_month: 'This month',
+    },
+    common: {
+      heartbeats: 'heartbeats',
+      to: 'to',
+      no_data: 'No data',
+      unknown: 'Unknown',
+      error: 'error',
+      confirm: 'OK',
+    },
+    state: {
+      synced: 'Synced: {time}',
+      never_synced: 'Never synced',
+    },
+    weekday: {
+      mon: 'Mon',
+      tue: 'Tue',
+      wed: 'Wed',
+      thu: 'Thu',
+      fri: 'Fri',
+      sat: 'Sat',
+      sun: 'Sun',
+    },
+    calendar: {
+      title: 'Monthly Coding Calendar',
+      prev_month: 'Previous month',
+      next_month: 'Next month',
+      less: 'Less',
+      more: 'More',
+      selected_day: 'Selected Day',
+      select_day: 'Select a day',
+      click_date: 'Click a date to view breakdowns',
+      no_activity: 'No coding activity',
+      summary_minutes: '{minutes}',
+      summary_heartbeats: '{heartbeats} heartbeats',
+      no_language_activity: 'No language activity for this day.',
+      no_project_activity: 'No project activity for this day.',
+      loading_language: 'Loading language breakdown…',
+      loading_project: 'Loading project breakdown…',
+      failed_language: 'Failed to load language breakdown.',
+      failed_project: 'Failed to load project breakdown.',
+      load_error: 'Unable to load daily breakdown',
+    },
+    sections: {
+      languages: 'Languages',
+      projects: 'Projects',
+    },
+    ai: {
+      title: 'AI Coding Activity',
+      ai_line_changes: 'AI Line Changes',
+      ai_share: 'AI Share',
+      human_line_changes: 'Human Line Changes',
+      total_line_changes: 'Total Line Changes',
+      bar_label: 'AI vs Human Changes',
+      legend_ai: 'AI',
+      legend_human: 'Human',
+    },
+    details: {
+      top_languages: 'Top Languages',
+      top_projects: 'Top Projects',
+      top_editors: 'Top Editors',
+    },
+    sync: {
+      title: 'Sync Data',
+      description: 'Manually trigger a sync to fetch heartbeats from WakaTime',
+      run_now: 'Sync',
+      syncing: 'Syncing...',
+      error_prefix: 'Error: {error}',
+      stats_error: 'Stats error: {error}',
+    },
+    footer: {
+      copy: 'WakaTime Sync Dashboard © 2025',
+    },
+  },
+  zh: {
+    doc: {
+      title: 'WakaTime 活动面板',
+    },
+    brand: {
+      activity: '活动',
+    },
+    nav: {
+      lang_switch_label: '语言切换',
+    },
+    hero: {
+      title: '活动概览',
+    },
+    summary: {
+      today: '今日',
+      selected_month: '所选月份',
+      best_prefix: '最佳：',
+      total_heartbeats: '总心跳数',
+      this_month: '本月',
+    },
+    common: {
+      heartbeats: '心跳',
+      to: '至',
+      no_data: '暂无数据',
+      unknown: '未知',
+      error: '错误',
+      confirm: '确定',
+    },
+    state: {
+      synced: '已同步：{time}',
+      never_synced: '尚未同步',
+    },
+    weekday: {
+      mon: '周一',
+      tue: '周二',
+      wed: '周三',
+      thu: '周四',
+      fri: '周五',
+      sat: '周六',
+      sun: '周日',
+    },
+    calendar: {
+      title: '月度编码日历',
+      prev_month: '上个月',
+      next_month: '下个月',
+      less: '少',
+      more: '多',
+      selected_day: '已选日期',
+      select_day: '选择某一天',
+      click_date: '点击日期查看统计',
+      no_activity: '当天没有编码活动',
+      summary_minutes: '{minutes}',
+      summary_heartbeats: '{heartbeats} 条心跳',
+      no_language_activity: '当天没有语言统计。',
+      no_project_activity: '当天没有项目统计。',
+      loading_language: '正在加载语言统计…',
+      loading_project: '正在加载项目统计…',
+      failed_language: '语言统计加载失败。',
+      failed_project: '项目统计加载失败。',
+      load_error: '当天统计加载失败',
+    },
+    sections: {
+      languages: '语言',
+      projects: '项目',
+    },
+    ai: {
+      title: 'AI 编码活动',
+      ai_line_changes: 'AI 变更行数',
+      ai_share: 'AI 占比',
+      human_line_changes: '人工变更行数',
+      total_line_changes: '总变更行数',
+      bar_label: 'AI 与人工变更占比',
+      legend_ai: 'AI',
+      legend_human: '人工',
+    },
+    details: {
+      top_languages: '常用语言',
+      top_projects: '常用项目',
+      top_editors: '常用编辑器',
+    },
+    sync: {
+      title: '同步数据',
+      description: '手动触发同步，从 WakaTime 获取心跳数据',
+      run_now: '同步',
+      syncing: '同步中…',
+      error_prefix: '错误：{error}',
+      stats_error: '统计加载失败：{error}',
+    },
+    footer: {
+      copy: 'WakaTime 同步面板 © 2025',
+    },
+  },
+};
+
+function getStoredLanguage() {
+  try {
+    return localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function detectLanguage() {
+  const stored = getStoredLanguage();
+  if (stored && SUPPORTED_LANGUAGES.has(stored)) {
+    return stored;
+  }
+
+  const browserLanguage = (navigator.language || '').toLowerCase();
+  return browserLanguage.startsWith('zh') ? 'zh' : 'en';
+}
+
+let currentLang = detectLanguage();
+
+function localeForLanguage(lang = currentLang) {
+  return lang === 'zh' ? 'zh-CN' : 'en-US';
+}
+
+function resolveMessage(lang, key) {
+  const source = I18N[lang] || I18N.en;
+  return key.split('.').reduce((acc, part) => (acc && part in acc ? acc[part] : null), source);
+}
+
+function t(key, vars = {}) {
+  const template = resolveMessage(currentLang, key) || resolveMessage('en', key) || key;
+  return template.replace(/\{(\w+)\}/g, (_, name) => String(vars[name] ?? ''));
+}
+
+function setStoredLanguage(lang) {
+  try {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function applyTranslations() {
+  document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
+  document.title = t('doc.title');
+
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    el.textContent = t(el.dataset.i18n);
+  });
+
+  totalHeartbeatsDetailEl.textContent = currentSelectedDate ? totalHeartbeatsDetailEl.textContent : t('summary.this_month');
+  langSwitchEl.setAttribute('aria-label', t('nav.lang_switch_label'));
+  prevMonthBtn.setAttribute('aria-label', t('calendar.prev_month'));
+  nextMonthBtn.setAttribute('aria-label', t('calendar.next_month'));
+
+  [langEnBtn, langZhBtn].forEach((button) => {
+    const active = button.dataset.lang === currentLang;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
+function setLanguage(lang) {
+  if (!SUPPORTED_LANGUAGES.has(lang) || lang === currentLang) {
+    return;
+  }
+
+  currentLang = lang;
+  setStoredLanguage(lang);
+  applyTranslations();
+  void loadState();
+  void loadStats();
+}
+
+function displayName(name) {
+  return name || t('common.unknown');
+}
+
+function normalizeSeriesName(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase();
+}
+
+function buildLanguageColorMap(rawMap) {
+  const nextMap = { ...DEFAULT_LANGUAGE_COLOR_MAP };
+  for (const [name, meta] of Object.entries(rawMap || {})) {
+    const normalized = normalizeSeriesName(name);
+    const color = typeof meta === 'string' ? meta : meta?.color;
+    if (!normalized || typeof color !== 'string' || !color.startsWith('#')) {
+      continue;
+    }
+    nextMap[normalized] = color;
+  }
+  return nextMap;
+}
+
+async function ensureLanguageColorsLoaded() {
+  if (!languageColorsPromise) {
+    languageColorsPromise = fetchJson('/assets/github-colors.json')
+      .then((data) => {
+        languageColorMap = buildLanguageColorMap(data);
+      })
+      .catch(() => {
+        languageColorMap = { ...DEFAULT_LANGUAGE_COLOR_MAP };
+      });
+  }
+
+  await languageColorsPromise;
+}
+
+function hashString(value) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = ((hash << 5) - hash) + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function fallbackColor(name, scope = 'generic', offset = 0) {
+  const paletteIndex = (hashString(`${scope}:${normalizeSeriesName(name)}`) + offset) % COLORS.length;
+  return COLORS[paletteIndex];
+}
+
+function seriesColor(name, scope = 'generic', offset = 0) {
+  if (scope === 'language') {
+    const mapped = languageColorMap[normalizeSeriesName(name)];
+    if (mapped) {
+      return mapped;
+    }
+  }
+  return fallbackColor(name, scope, offset);
+}
+
+function fmtMinutes(minutes) {
+  if (!minutes || minutes <= 0) return '0m';
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (h <= 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+function fmtNumber(num) {
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+  return String(num);
+}
+
+function toIsoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function fromIsoDate(dateString) {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function monthStart(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function monthEnd(date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+}
+
+function shiftMonth(date, offset) {
+  return new Date(date.getFullYear(), date.getMonth() + offset, 1);
+}
+
+function monthLabel(date) {
+  return date.toLocaleDateString(localeForLanguage(), { month: 'long', year: 'numeric' });
+}
+
+function shortDateLabel(dateString) {
+  return fromIsoDate(dateString).toLocaleDateString(localeForLanguage(), { month: 'short', day: 'numeric' });
+}
+
+function fullDateLabel(dateString) {
+  return fromIsoDate(dateString).toLocaleDateString(localeForLanguage(), {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function monthRange(date) {
+  return {
+    start: toIsoDate(monthStart(date)),
+    end: toIsoDate(monthEnd(date)),
+  };
+}
+
+function calendarLevel(minutes, maxMinutes) {
+  if (!minutes || minutes <= 0 || maxMinutes <= 0) return 0;
+  const ratio = minutes / maxMinutes;
+  if (ratio >= 0.75) return 4;
+  if (ratio >= 0.5) return 3;
+  if (ratio >= 0.25) return 2;
+  return 1;
+}
+
+async function fetchJson(url, options = {}) {
+  const resp = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`HTTP ${resp.status}: ${text}`);
+  }
+  return resp.json();
+}
+
+async function loadHealth() {
+  try {
+    const data = await fetchJson('/api/health');
+    versionEl.textContent = `v${data.version}`;
+  } catch {
+    versionEl.textContent = t('common.error');
+  }
+}
+
+async function loadState() {
+  try {
+    const data = await fetchJson('/api/sync/state');
+    const last = data.last_sync_at;
+    if (last && last !== 'never') {
+      const d = new Date(last);
+      lastSyncEl.textContent = t('state.synced', { time: d.toLocaleString(localeForLanguage()) });
+    } else {
+      lastSyncEl.textContent = t('state.never_synced');
+    }
+  } catch {
+    lastSyncEl.textContent = t('common.error');
+  }
+}
+
+async function runSync() {
+  const originalBtnText = syncBtn.innerHTML;
+  syncBtn.disabled = true;
+  syncBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg><span>${t('sync.syncing')}</span>`;
+
+  try {
+    await fetchJson('/api/sync/run', { method: 'POST' });
+    await loadState();
+    await loadStats();
+  } catch (err) {
+    alert(t('sync.error_prefix', { error: err }));
+  } finally {
+    syncBtn.disabled = false;
+    syncBtn.innerHTML = originalBtnText;
+  }
+}
+
+function renderDetailList(el, items, scope = 'generic', colorOffset = 0) {
+  if (!items || !items.length) {
+    el.innerHTML = `<div class="detail-item"><span class="detail-name">${t('common.no_data')}</span></div>`;
+    return;
+  }
+
+  const maxMinutes = Math.max(...items.map((item) => item.active_minutes || 0));
+
+  el.innerHTML = items.map((item, idx) => {
+    const pct = maxMinutes > 0 ? ((item.active_minutes || 0) / maxMinutes) * 100 : 0;
+    const color = seriesColor(item.name, scope, colorOffset + idx);
+    return `
+      <div class="detail-item">
+        <span class="detail-name">${displayName(item.name)}</span>
+        <div class="detail-bar">
+          <div class="detail-bar-fill" style="width: ${pct}%; background: ${color}"></div>
+        </div>
+        <span class="detail-time">${fmtMinutes(item.active_minutes)}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderLegend(containerId, items, scope = 'generic', colorOffset = 0) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!items || !items.length) {
+    el.innerHTML = '';
+    return;
+  }
+
+  el.innerHTML = items.slice(0, 5).map((item, idx) => {
+    const color = seriesColor(item.name, scope, colorOffset + idx);
+    return `
+      <div class="legend-item">
+        <span class="legend-color" style="background: ${color}"></span>
+        <span>${displayName(item.name)}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderCalendarSummary(minutes, heartbeats) {
+  if (heartbeats > 0) {
+    calendarHoverSummaryEl.innerHTML = `
+      <span>${t('calendar.summary_minutes', { minutes: fmtMinutes(minutes) })}</span>
+      <span>${t('calendar.summary_heartbeats', { heartbeats: fmtNumber(heartbeats) })}</span>
+    `;
+    return;
+  }
+
+  calendarHoverSummaryEl.textContent = t('calendar.no_activity');
+}
+
+function renderHoverBreakdown(el, items, scope, colorOffset, emptyMessage) {
+  if (!items || !items.length) {
+    el.innerHTML = `<div class="calendar-hover-empty">${emptyMessage}</div>`;
+    return;
+  }
+
+  const maxMinutes = Math.max(...items.map((item) => item.active_minutes || 0), 0);
+  el.innerHTML = items.map((item, idx) => {
+    const pct = maxMinutes > 0 ? ((item.active_minutes || 0) / maxMinutes) * 100 : 0;
+    const color = seriesColor(item.name, scope, colorOffset + idx);
+    return `
+      <div class="calendar-hover-row">
+        <div class="calendar-hover-meta">
+          <div class="calendar-hover-name">${displayName(item.name)}</div>
+          <div class="calendar-hover-bar">
+            <div class="calendar-hover-fill" style="width: ${pct}%; background: ${color}"></div>
+          </div>
+        </div>
+        <div class="calendar-hover-value">${fmtMinutes(item.active_minutes)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function setActiveCalendarCell(dateString) {
+  dailyCalendarGridEl
+    .querySelectorAll('.calendar-cell.is-active')
+    .forEach((cell) => cell.classList.remove('is-active'));
+
+  if (!dateString) {
+    return;
+  }
+
+  const cell = dailyCalendarGridEl.querySelector(`.calendar-cell[data-date="${dateString}"]`);
+  if (cell) {
+    cell.classList.add('is-active');
+  }
+}
+
+function renderSelectedDayPanel(dateString, minutes, heartbeats, languages, projects) {
+  currentSelectedDate = dateString;
+  setActiveCalendarCell(dateString);
+  calendarSidePanelEl.classList.toggle('is-empty', heartbeats <= 0);
+  calendarHoverTitleEl.textContent = fullDateLabel(dateString);
+  renderCalendarSummary(minutes, heartbeats);
+  renderHoverBreakdown(calendarHoverLanguagesEl, languages, 'language', 0, t('calendar.no_language_activity'));
+  renderHoverBreakdown(calendarHoverProjectsEl, projects, 'project', 2, t('calendar.no_project_activity'));
+}
+
+function renderSelectedDayLoading(dateString, minutes, heartbeats) {
+  currentSelectedDate = dateString;
+  setActiveCalendarCell(dateString);
+  calendarSidePanelEl.classList.toggle('is-empty', heartbeats <= 0);
+  calendarHoverTitleEl.textContent = fullDateLabel(dateString);
+  renderCalendarSummary(minutes, heartbeats);
+
+  if (heartbeats > 0) {
+    calendarHoverLanguagesEl.innerHTML = `<div class="calendar-hover-empty">${t('calendar.loading_language')}</div>`;
+    calendarHoverProjectsEl.innerHTML = `<div class="calendar-hover-empty">${t('calendar.loading_project')}</div>`;
+    return true;
+  }
+
+  renderHoverBreakdown(calendarHoverLanguagesEl, [], 'language', 0, t('calendar.no_language_activity'));
+  renderHoverBreakdown(calendarHoverProjectsEl, [], 'project', 2, t('calendar.no_project_activity'));
+  return false;
+}
+
+function resolveSelectedCalendarDate(daily) {
+  const { start, end } = monthRange(currentMonth);
+  if (currentSelectedDate && currentSelectedDate >= start && currentSelectedDate <= end) {
+    return currentSelectedDate;
+  }
+
+  const todayIso = toIsoDate(new Date());
+  if (todayIso >= start && todayIso <= end) {
+    return todayIso;
+  }
+
+  const activeDays = (daily.days || []).filter((day) => (day.heartbeats || 0) > 0);
+  if (activeDays.length > 0) {
+    return activeDays[activeDays.length - 1].date;
+  }
+
+  return start;
+}
+
+async function selectCalendarDay(dateString, minutes, heartbeats) {
+  if (!dateString) {
+    return;
+  }
+
+  const shouldFetch = renderSelectedDayLoading(dateString, minutes, heartbeats);
+  if (!shouldFetch) {
+    return;
+  }
+
+  const cached = dailyBreakdownCache.get(dateString);
+  if (cached) {
+    renderSelectedDayPanel(dateString, minutes, heartbeats, cached.languages, cached.projects);
+    return;
+  }
+
+  const requestToken = ++previewRequestToken;
+
+  try {
+    const [languages, projects] = await Promise.all([
+      fetchJson(`/api/stats/breakdown?by=language&limit=5&start=${dateString}&end=${dateString}`),
+      fetchJson(`/api/stats/breakdown?by=project&limit=5&start=${dateString}&end=${dateString}`),
+    ]);
+
+    if (requestToken !== previewRequestToken || currentSelectedDate !== dateString) {
+      return;
+    }
+
+    const payload = {
+      languages: languages.items || [],
+      projects: projects.items || [],
+    };
+    dailyBreakdownCache.set(dateString, payload);
+    renderSelectedDayPanel(dateString, minutes, heartbeats, payload.languages, payload.projects);
+  } catch {
+    if (requestToken !== previewRequestToken || currentSelectedDate !== dateString) {
+      return;
+    }
+
+    calendarHoverSummaryEl.textContent = t('calendar.load_error');
+    renderHoverBreakdown(calendarHoverLanguagesEl, [], 'language', 0, t('calendar.failed_language'));
+    renderHoverBreakdown(calendarHoverProjectsEl, [], 'project', 2, t('calendar.failed_project'));
+  }
+}
+
+function renderDailyCalendar(data) {
+  const days = data.days || [];
+  const dayMap = new Map(days.map((day) => [day.date, day]));
+  const maxMinutes = Math.max(0, ...days.map((day) => day.active_minutes || 0));
+  const todayIso = toIsoDate(new Date());
+  const firstDay = monthStart(currentMonth);
+  const lastDay = monthEnd(currentMonth);
+
+  calendarMonthLabelEl.textContent = monthLabel(currentMonth);
+
+  const cells = [];
+  const leadingEmptyCells = (firstDay.getDay() + 6) % 7;
+  for (let i = 0; i < leadingEmptyCells; i += 1) {
+    cells.push('<div class="calendar-cell is-empty" aria-hidden="true"></div>');
+  }
+
+  for (let day = 1; day <= lastDay.getDate(); day += 1) {
+    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const iso = toIsoDate(date);
+    const stats = dayMap.get(iso);
+    const minutes = stats?.active_minutes || 0;
+    const heartbeats = stats?.heartbeats || 0;
+    const level = calendarLevel(minutes, maxMinutes);
+    const classes = [
+      'calendar-cell',
+      `level-${level}`,
+      minutes > 0 ? 'has-activity' : 'no-activity',
+      iso === todayIso ? 'is-today' : '',
+      currentSelectedDate === iso ? 'is-active' : '',
+    ].filter(Boolean).join(' ');
+    const activityText = minutes > 0 ? fmtMinutes(minutes) : t('calendar.no_activity');
+
+    cells.push(`
+      <button
+        type="button"
+        class="${classes}"
+        data-date="${iso}"
+        data-minutes="${minutes}"
+        data-heartbeats="${heartbeats}"
+        title="${iso} · ${activityText} · ${heartbeats} ${t('common.heartbeats')}"
+        aria-label="${iso}, ${activityText}, ${heartbeats} ${t('common.heartbeats')}"
+      >
+        <span class="calendar-day">${day}</span>
+        <span class="calendar-duration">${minutes > 0 ? fmtMinutes(minutes) : '—'}</span>
+        <span class="calendar-heartbeats">${heartbeats > 0 ? `${fmtNumber(heartbeats)} hb` : '0 hb'}</span>
+      </button>
+    `);
+  }
+
+  while (cells.length % 7 !== 0) {
+    cells.push('<div class="calendar-cell is-empty" aria-hidden="true"></div>');
+  }
+
+  dailyCalendarGridEl.innerHTML = cells.join('');
+}
+
+function initPieChart(canvasId, items, scope = 'generic', colorOffset = 0) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+
+  const chart = canvasId === 'languageChart' ? languageChart : projectChart;
+  if (chart) {
+    chart.destroy();
+  }
+
+  const labels = items.map((item) => displayName(item.name));
+  const values = items.map((item) => item.active_minutes || 0);
+  const colors = items.map((item, idx) => seriesColor(item.name, scope, colorOffset + idx));
+
+  const newChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [
+        {
+          data: values,
+          backgroundColor: colors,
+          borderColor: '#ffffff',
+          borderWidth: 2,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '60%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#ffffff',
+          titleColor: '#24292f',
+          bodyColor: '#57606a',
+          borderColor: '#d0d7de',
+          borderWidth: 1,
+          callbacks: {
+            label: (ctx) => `${ctx.label}: ${fmtMinutes(ctx.raw)}`,
+          },
+        },
+      },
+    },
+  });
+
+  if (canvasId === 'languageChart') {
+    languageChart = newChart;
+  } else {
+    projectChart = newChart;
+  }
+}
+
+async function loadStats() {
+  try {
+    await ensureLanguageColorsLoaded();
+
+    const { start, end } = monthRange(currentMonth);
+    const todayIso = toIsoDate(new Date());
+    const monthText = monthLabel(currentMonth);
+
+    const [todayDaily, daily, langs, projects, editors, aiStats] = await Promise.all([
+      fetchJson(`/api/stats/daily?start=${todayIso}&end=${todayIso}`),
+      fetchJson(`/api/stats/daily?start=${start}&end=${end}`),
+      fetchJson(`/api/stats/breakdown?by=language&limit=10&start=${start}&end=${end}`),
+      fetchJson(`/api/stats/breakdown?by=project&limit=10&start=${start}&end=${end}`),
+      fetchJson(`/api/stats/breakdown?by=editor&limit=5&start=${start}&end=${end}`),
+      fetchJson(`/api/stats/ai?start=${start}&end=${end}`),
+    ]);
+
+    const today = todayDaily.days[0] || null;
+    todayActiveEl.textContent = today ? fmtMinutes(today.active_minutes) : '0m';
+    todayHeartbeatsEl.textContent = today ? fmtNumber(today.heartbeats) : '0';
+
+    weekActiveEl.textContent = fmtMinutes(daily.total_active_minutes);
+    bestDayEl.textContent = daily.best_day ? shortDateLabel(daily.best_day) : '-';
+    totalHeartbeatsEl.textContent = fmtNumber(daily.total_heartbeats);
+    totalHeartbeatsDetailEl.textContent = monthText;
+
+    document.getElementById('ai-insert').textContent = fmtNumber(aiStats.ai_line_changes);
+    document.getElementById('ai-delete').textContent = `${(aiStats.ai_percentage || 0).toFixed(1)}%`;
+    document.getElementById('human-insert').textContent = fmtNumber(aiStats.human_line_changes);
+    document.getElementById('human-delete').textContent = fmtNumber(aiStats.total_changes || 0);
+
+    const aiPercent = aiStats.ai_percentage || 0;
+    const humanPercent = 100 - aiPercent;
+    document.getElementById('ai-bar').style.width = `${aiPercent}%`;
+    document.getElementById('human-bar').style.width = `${humanPercent}%`;
+    document.getElementById('ai-percent').textContent = `${aiPercent.toFixed(1)}%`;
+    document.getElementById('human-percent').textContent = `${humanPercent.toFixed(1)}%`;
+
+    renderDailyCalendar(daily);
+    const selectedDate = resolveSelectedCalendarDate(daily);
+    const selectedDay = (daily.days || []).find((day) => day.date === selectedDate);
+    await selectCalendarDay(
+      selectedDate,
+      selectedDay?.active_minutes || 0,
+      selectedDay?.heartbeats || 0,
+    );
+    initPieChart('languageChart', langs.items || [], 'language', 0);
+    initPieChart('projectChart', projects.items || [], 'project', 2);
+    renderLegend('language-legend', langs.items || [], 'language', 0);
+    renderLegend('project-legend', projects.items || [], 'project', 2);
+
+    renderDetailList(topLanguagesEl, langs.items || [], 'language', 0);
+    renderDetailList(topProjectsEl, projects.items || [], 'project', 2);
+    renderDetailList(topEditorsEl, editors.items || [], 'editor', 4);
+  } catch (err) {
+    console.error('Failed to load stats:', err);
+  }
+}
+
+function getCalendarCell(target) {
+  return target instanceof Element ? target.closest('.calendar-cell[data-date]') : null;
+}
+
+function handleCalendarCellInteraction(event) {
+  const cell = getCalendarCell(event.target);
+  if (!cell) {
+    return;
+  }
+
+  void selectCalendarDay(
+    cell.dataset.date,
+    Number(cell.dataset.minutes || 0),
+    Number(cell.dataset.heartbeats || 0),
+  );
+}
+
+dailyCalendarGridEl.addEventListener('click', handleCalendarCellInteraction);
+dailyCalendarGridEl.addEventListener('focusin', handleCalendarCellInteraction);
+dailyCalendarGridEl.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') {
+    return;
+  }
+
+  const cell = getCalendarCell(event.target);
+  if (!cell) {
+    return;
+  }
+
+  event.preventDefault();
+  void selectCalendarDay(
+    cell.dataset.date,
+    Number(cell.dataset.minutes || 0),
+    Number(cell.dataset.heartbeats || 0),
+  );
+});
+
+prevMonthBtn.addEventListener('click', async () => {
+  currentMonth = shiftMonth(currentMonth, -1);
+  await loadStats();
+});
+
+nextMonthBtn.addEventListener('click', async () => {
+  currentMonth = shiftMonth(currentMonth, 1);
+  await loadStats();
+});
+
+langEnBtn.addEventListener('click', () => setLanguage('en'));
+langZhBtn.addEventListener('click', () => setLanguage('zh'));
+
+syncBtn.addEventListener('click', runSync);
+
+applyTranslations();
+loadHealth();
+loadState();
+loadStats();

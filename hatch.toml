@@ -1,0 +1,12 @@
+[build.targets.wheel]
+packages = ["src/wakatime_sync"]
+
+[build.targets.wheel.force-include]
+"src/wakatime_sync/web" = "wakatime_sync/web"
+
+[version]
+source = "vcs"
+
+[version.raw-options]
+local_scheme = "no-local-version"
+version_scheme = "only-version"

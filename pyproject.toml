@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wakatime-sync"
+dynamic = ["version"]
+description = "WakaTime heartbeats sync service"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi",
+  "loguru",
+  "pydantic",
+  "pydantic-settings",
+  "python-dotenv",
+  "httpx",
+  "uvloop",
+  "tortoise-orm",
+  "aiomysql",
+  "apscheduler",
+  "uvicorn[standard]",
+]
+
+[dependency-groups]
+dev = [
+  "ruff",
+  "mypy",
+  "taskipy",
+]
+
+[tool.taskipy.tasks]
+dev = "uvicorn wakatime_sync.main:app --loop uvloop --reload --port ${APP_PORT:-9506}"
+lint = "uv run ruff check src"
+format = "uv run ruff format src"
+typecheck = "uv run mypy src"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+fallback_version = "0.0.0-dev"
+local_scheme = "no-local-version"
+version_scheme = "only-version"

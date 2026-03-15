@@ -1,0 +1,1 @@
+"""WakaTime API module."""
