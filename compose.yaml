@@ -30,7 +30,6 @@ services:
       MYSQL_DSN: mysql://root:123456@mysql:3306/wakatime_sync
       WAKATIME_API_BASE: https://api.wakatime.com/api/v1
     volumes:
-      - ./src:/app/src
       - ${HOME}/.wakatime.cfg:/root/.wakatime.cfg:ro
     depends_on:
       mysql:
@@ -42,8 +41,7 @@ services:
         "--host",
         "0.0.0.0",
         "--port",
-        "9506",
-        "--reload"
+        "9506"
       ]
 
 volumes:

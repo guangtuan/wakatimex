@@ -19,7 +19,7 @@
 - 启动：`docker compose -f compose.yaml up --build -d`
 - 查看状态：`docker compose -f compose.yaml logs -f`
 - 健康检查：`http://127.0.0.1:9506/api/health`
-- 这个 compose 会挂载 `src/`，前端改动通常不需要重启容器，直接刷新页面即可
+- 这个 compose 不再挂载 `src/`，代码改动后需要重新构建并重启容器
 - 改 JS 后先跑：`node --check src/wakatime_sync/web/assets/app.js`
 - 需要验证运行中资源时，优先用容器内请求：`docker compose -f compose.yaml exec -T app python - <<'PY' ... PY`
 - 导出本地 MySQL SQL 文件：`./export-db.sh`（可选输出路径参数）
