@@ -2,7 +2,7 @@
 - 后端：`FastAPI` + `Tortoise ORM` + `MySQL` + `APScheduler`
 - 外部数据：`WakaTime API`（heartbeats、user_agents）
 - 前端：原生 `HTML/CSS/JS`，图表用 `Chart.js`
-- 运行方式：本地开发优先走 `docker-compose.dev.yaml`
+- 运行方式：本地开发优先走 `compose.yaml`
 - 前端已支持中英文切换，语言颜色使用 vendored 的 GitHub 语言颜色表：`src/wakatime_sync/web/assets/github-colors.json`
 
 ## 典型模块目录实例
@@ -16,13 +16,13 @@
 - 第三方说明：`THIRD_PARTY_NOTICES.md`、`third_party/ozh-github-colors.LICENSE`
 
 ## 本地开发自测流程
-- 启动：`docker compose -f docker-compose.dev.yaml up --build -d`
-- 查看状态：`docker compose -f docker-compose.dev.yaml logs -f`
+- 启动：`docker compose -f compose.yaml up --build -d`
+- 查看状态：`docker compose -f compose.yaml logs -f`
 - 健康检查：`http://127.0.0.1:9506/api/health`
 - 这个 compose 会挂载 `src/`，前端改动通常不需要重启容器，直接刷新页面即可
 - 改 JS 后先跑：`node --check src/wakatime_sync/web/assets/app.js`
-- 需要验证运行中资源时，优先用容器内请求：`docker compose -f docker-compose.dev.yaml exec -T app python - <<'PY' ... PY`
-- 本地依赖前提：宿主机 MySQL 可用；WakaTime key 来自 `~/.wakatime.cfg` 或环境变量
+- 需要验证运行中资源时，优先用容器内请求：`docker compose -f compose.yaml exec -T app python - <<'PY' ... PY`
+- 本地依赖前提：`compose.yaml` 已内置 MySQL 8；WakaTime key 来自 `~/.wakatime.cfg` 或环境变量
 
 ## 代码品味和偏好
 - 优先做小而准的改动，避免无关重构

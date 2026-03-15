@@ -1,6 +1,8 @@
 const versionEl = document.getElementById('version');
 const lastSyncEl = document.getElementById('last-sync');
-const syncBtn = document.getElementById('sync-btn');
+const syncRangeBtn = document.getElementById('sync-range-btn');
+const syncStartDateEl = document.getElementById('sync-start-date');
+const syncEndDateEl = document.getElementById('sync-end-date');
 const todayActiveEl = document.getElementById('today-active');
 const todayHeartbeatsEl = document.getElementById('today-heartbeats');
 const weekActiveEl = document.getElementById('week-active');
@@ -155,8 +157,12 @@ const I18N = {
     sync: {
       title: 'Sync Data',
       description: 'Manually trigger a sync to fetch heartbeats from WakaTime',
-      run_now: 'Sync',
+      from: 'From',
+      to: 'To',
+      run_range: 'Sync',
       syncing: 'Syncing...',
+      syncing_range: 'Syncing...',
+      invalid_range: 'Please choose both start and end dates.',
       error_prefix: 'Error: {error}',
       stats_error: 'Stats error: {error}',
     },
@@ -247,8 +253,12 @@ const I18N = {
     sync: {
       title: '同步数据',
       description: '手动触发同步，从 WakaTime 获取心跳数据',
-      run_now: '同步',
+      from: '从',
+      to: '到',
+      run_range: '同步',
       syncing: '同步中…',
+      syncing_range: '同步中…',
+      invalid_range: '请选择开始和结束日期。',
       error_prefix: '错误：{error}',
       stats_error: '统计加载失败：{error}',
     },
@@ -456,6 +466,17 @@ function monthRange(date) {
   };
 }
 
+function syncRangeDefaults() {
+  const today = new Date();
+  const start = new Date(today);
+  const isMonday = today.getDay() === 1;
+  start.setDate(today.getDate() - (isMonday ? 3 : 1));
+  return {
+    start: toIsoDate(start),
+    end: toIsoDate(today),
+  };
+}
+
 function calendarLevel(minutes, maxMinutes) {
   if (!minutes || minutes <= 0 || maxMinutes <= 0) return 0;
   const ratio = minutes / maxMinutes;
@@ -501,20 +522,60 @@ async function loadState() {
   }
 }
 
-async function runSync() {
-  const originalBtnText = syncBtn.innerHTML;
-  syncBtn.disabled = true;
-  syncBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg><span>${t('sync.syncing')}</span>`;
+function ensureSyncRangeDefaults() {
+  if (!syncStartDateEl || !syncEndDateEl) {
+    return;
+  }
+
+  if (!syncStartDateEl.value || !syncEndDateEl.value) {
+    const defaults = syncRangeDefaults();
+    syncStartDateEl.value = syncStartDateEl.value || defaults.start;
+    syncEndDateEl.value = syncEndDateEl.value || defaults.end;
+  }
+}
+
+function setSyncLoadingState(isLoading, rangeMode = false) {
+  if (!syncRangeBtn || !syncStartDateEl || !syncEndDateEl) {
+    return;
+  }
+
+  syncRangeBtn.disabled = isLoading;
+  syncStartDateEl.disabled = isLoading;
+  syncEndDateEl.disabled = isLoading;
+
+  if (isLoading) {
+    syncRangeBtn.dataset.originalHtml = syncRangeBtn.dataset.originalHtml || syncRangeBtn.innerHTML;
+    syncRangeBtn.textContent = rangeMode ? t('sync.syncing_range') : t('sync.run_range');
+    return;
+  }
+
+  if (syncRangeBtn.dataset.originalHtml) {
+    syncRangeBtn.innerHTML = syncRangeBtn.dataset.originalHtml;
+  }
+}
+
+async function runSyncRange() {
+  ensureSyncRangeDefaults();
+
+  const start = syncStartDateEl?.value || '';
+  const end = syncEndDateEl?.value || '';
+  if (!start || !end) {
+    alert(t('sync.invalid_range'));
+    return;
+  }
+
+  setSyncLoadingState(true, true);
 
   try {
-    await fetchJson('/api/sync/run', { method: 'POST' });
+    const params = new URLSearchParams({ start, end });
+    await fetchJson(`/api/sync/range?${params.toString()}`, { method: 'POST' });
+    dailyBreakdownCache.clear();
     await loadState();
     await loadStats();
   } catch (err) {
     alert(t('sync.error_prefix', { error: err }));
   } finally {
-    syncBtn.disabled = false;
-    syncBtn.innerHTML = originalBtnText;
+    setSyncLoadingState(false);
   }
 }
 
@@ -920,7 +981,8 @@ nextMonthBtn.addEventListener('click', async () => {
 langEnBtn.addEventListener('click', () => setLanguage('en'));
 langZhBtn.addEventListener('click', () => setLanguage('zh'));
 
-syncBtn.addEventListener('click', runSync);
+ensureSyncRangeDefaults();
+syncRangeBtn.addEventListener('click', runSyncRange);
 
 applyTranslations();
 loadHealth();
