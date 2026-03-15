@@ -15,4 +15,4 @@ WakaTimeX 是一个面向个人自托管的 WakaTime 数据同步与可视化项
 
 整体上，它不是对 WakaTime 官方产品的替代，而是一个更偏本地、自定义、可控的数据归档和展示面板。
 
-English version: [README.en.md](/home/grant/workspace/wakatimex/README.en.md)
+English version: [README.en.md](README.en.md)

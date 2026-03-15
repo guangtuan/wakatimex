@@ -15,4 +15,4 @@ The project currently focuses on these capabilities:
 
 Overall, it is not meant to replace WakaTime itself. It is a more local, customizable, and controllable archive and dashboard for your own activity data.
 
-中文说明： [README.md](/home/grant/workspace/wakatimex/README.md)
+中文说明：[README.md](README.md)
