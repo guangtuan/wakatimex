@@ -1,43 +1,18 @@
-# wakatime-sync
+# WakaTimeX
 
-Engineering-ready WakaTime sync service.
+WakaTimeX 是一个面向个人自托管的 WakaTime 数据同步与可视化项目。
 
-## Features
+它会从 WakaTime 拉取 `heartbeats` 和 `user_agents`，将数据保存到 MySQL，并提供一套本地网页界面来查看编码活动。
 
-- Pull heartbeats from WakaTime and store into MySQL.
-- Daily scheduled sync with APScheduler.
-- REST API with JSON.
-- Frontend served as `.html` routes.
-- `/` redirects to `/index.html`.
-- Static assets are loaded via `importlib.resources`.
+项目目前主要包含这些能力：
 
-## Development
+- 将 WakaTime 心跳数据同步到本地数据库
+- 按日期范围汇总编码时长、心跳数、语言、项目、编辑器等统计
+- 展示 GitHub contributions 风格的月度编码日历
+- 支持点击日期查看当天的 Languages / Projects 详情
+- 提供 AI / Human line changes 统计
+- 提供中英文界面切换
 
-```bash
-uv sync
-uv run task dev
-```
+整体上，它不是对 WakaTime 官方产品的替代，而是一个更偏本地、自定义、可控的数据归档和展示面板。
 
-## API
-
-- `GET /api/health`
-- `GET /api/sync/state`
-- `POST /api/sync/run`
-
-## Project Layout
-
-- `src/wakatime_sync/main.py`
-- `src/wakatime_sync/biz/*`
-- `src/wakatime_sync/sys/*`
-- `src/wakatime_sync/web/*`
-
-## Environment
-
-- `WAKATIME_API_KEY` (optional if configured in `~/.wakatime.cfg`)
-- `MYSQL_DSN` (example: `mysql://user:pass@host:3306/dbname`)
-- `APP_PORT` (default `9506`)
-- `APP_TIMEZONE` (default `UTC`)
-- `SYNC_HOUR_UTC`, `SYNC_MINUTE_UTC`
-- `SYNC_LOOKBACK_DAYS`, `SYNC_PAGE_LIMIT`
-
-Copy `.env.example` to `.env` for local dev.
+English version: [README.en.md](/home/grant/workspace/wakatimex/README.en.md)
