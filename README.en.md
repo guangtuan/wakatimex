@@ -8,8 +8,9 @@ The project currently focuses on these capabilities:
 
 - Sync WakaTime heartbeat data into a local database
 - Aggregate coding time, heartbeat counts, languages, projects, and editors by date range
-- Render a GitHub contributions-style monthly coding calendar
-- Show per-day Languages / Projects details after selecting a date
+- Render a GitHub contributions-style monthly coding calendar on the home page, aggregated in `Asia/Shanghai`
+- Show per-day Languages / Projects details and a 24-hour activity distribution after selecting a date
+- Provide a dedicated Charts page for languages, projects, AI stats, and rankings
 - Provide AI vs Human line change statistics
 - Support both Chinese and English UI
 

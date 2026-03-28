@@ -8,8 +8,9 @@ WakaTimeX 是一个面向个人自托管的 WakaTime 数据同步与可视化项
 
 - 将 WakaTime 心跳数据同步到本地数据库
 - 按日期范围汇总编码时长、心跳数、语言、项目、编辑器等统计
-- 展示 GitHub contributions 风格的月度编码日历
-- 支持点击日期查看当天的 Languages / Projects 详情
+- 首页展示 GitHub contributions 风格的月度编码日历，并按北京时间聚合日期
+- 支持点击日期查看当天的 Languages / Projects 详情和 24 小时活跃分布
+- 独立的 Charts 页面展示语言、项目、AI 统计和排行信息
 - 提供 AI / Human line changes 统计
 - 提供中英文界面切换
 
