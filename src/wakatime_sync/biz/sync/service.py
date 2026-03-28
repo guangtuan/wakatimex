@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from loguru import logger
 from tortoise.transactions import in_transaction
@@ -20,13 +21,20 @@ class SyncResult:
 
 
 class SyncService:
-    def __init__(self, client: WakaTimeClient, lookback_days: int, page_limit: int = 200) -> None:
+    def __init__(
+        self,
+        client: WakaTimeClient,
+        lookback_days: int,
+        page_limit: int = 200,
+        timezone_name: str = "UTC",
+    ) -> None:
         self.client = client
         self.lookback_days = lookback_days
         self.page_limit = page_limit
+        self.timezone = ZoneInfo(timezone_name)
 
     async def sync_recent(self) -> SyncResult:
-        today = datetime.now(UTC).date()
+        today = datetime.now(self.timezone).date()
         if today.weekday() == 0:
             last_friday = today - timedelta(days=3)
             dates = [
@@ -79,7 +87,7 @@ class SyncService:
                     break
                 page = self._next_page_number(next_page, page)
 
-        await self._set_last_sync(datetime.now(UTC))
+        await self._set_last_sync(datetime.now(self.timezone))
         logger.info(
             "sync finished dates={} fetched={} inserted={} updated={}",
             dates,

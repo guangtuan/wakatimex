@@ -10,8 +10,10 @@ from wakatime_sync.biz.api.schemas import (
     DailyStatItem,
     DebugDbResponse,
     HealthResponse,
+    HourlyStatItem,
     StatsBreakdownResponse,
     StatsDailyResponse,
+    StatsHourlyResponse,
     SyncRunResponse,
     SyncStateResponse,
 )
@@ -22,6 +24,7 @@ from wakatime_sync.biz.stats.service import (
     summarize_ai_stats,
     summarize_breakdown,
     summarize_daily,
+    summarize_hourly,
 )
 from wakatime_sync.sys.config import Settings
 from wakatime_sync.sys.db import Heartbeat, SyncState
@@ -66,12 +69,12 @@ def build_api_router() -> APIRouter:
     @router.get("/api/stats/daily", response_model=StatsDailyResponse)
     async def stats_daily(start: str | None = None, end: str | None = None) -> StatsDailyResponse:
         try:
-            window = parse_window(start, end)
+            window = parse_window(start, end, settings.app_timezone)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         rows = await load_heartbeats(window)
-        daily = summarize_daily(rows)
+        daily = summarize_daily(rows, window.timezone)
         day_items = [DailyStatItem(date=day, **vals) for day, vals in daily.items()]
 
         total_heartbeats = sum(v["heartbeats"] for v in daily.values())
@@ -102,7 +105,7 @@ def build_api_router() -> APIRouter:
             )
 
         try:
-            window = parse_window(start, end)
+            window = parse_window(start, end, settings.app_timezone)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -127,10 +130,36 @@ def build_api_router() -> APIRouter:
     async def stats_range(start: str | None = None, end: str | None = None) -> StatsDailyResponse:
         return await stats_daily(start=start, end=end)
 
+    @router.get("/api/stats/hourly", response_model=StatsHourlyResponse)
+    async def stats_hourly(start: str | None = None, end: str | None = None) -> StatsHourlyResponse:
+        try:
+            window = parse_window(start, end, settings.app_timezone)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        rows = await load_heartbeats(window)
+        hours = summarize_hourly(rows, window.timezone)
+        peak = (
+            max(hours, key=lambda item: (item["active_seconds"], item["heartbeats"]))
+            if hours
+            else None
+        )
+
+        return StatsHourlyResponse(
+            start=window.start.isoformat(),
+            end=window.end.isoformat(),
+            total_heartbeats=sum(item["heartbeats"] for item in hours),
+            total_active_minutes=sum(item["active_minutes"] for item in hours),
+            peak_hour=peak["hour"]
+            if peak and (peak["active_seconds"] > 0 or peak["heartbeats"] > 0)
+            else None,
+            hours=[HourlyStatItem(**item) for item in hours],
+        )
+
     @router.get("/api/stats/ai", response_model=AIStatsResponse)
     async def stats_ai(start: str | None = None, end: str | None = None) -> AIStatsResponse:
         try:
-            window = parse_window(start, end)
+            window = parse_window(start, end, settings.app_timezone)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

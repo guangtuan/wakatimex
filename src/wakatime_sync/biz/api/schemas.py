@@ -63,6 +63,22 @@ class StatsBreakdownResponse(BaseModel):
     items: list[BreakdownItem]
 
 
+class HourlyStatItem(BaseModel):
+    hour: int
+    heartbeats: int
+    active_minutes: int
+    active_seconds: int
+
+
+class StatsHourlyResponse(BaseModel):
+    start: str
+    end: str
+    total_heartbeats: int
+    total_active_minutes: int
+    peak_hour: int | None
+    hours: list[HourlyStatItem]
+
+
 class AIStatsResponse(BaseModel):
     start: str
     end: str

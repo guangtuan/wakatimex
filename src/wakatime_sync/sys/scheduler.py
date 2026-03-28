@@ -20,8 +20,10 @@ def parse_sync_times(times_str: str) -> list[tuple[int, int]]:
     return result
 
 
-def build_scheduler(sync_service: SyncService, times_str: str) -> AsyncIOScheduler:
-    scheduler = AsyncIOScheduler(timezone="UTC")
+def build_scheduler(
+    sync_service: SyncService, times_str: str, timezone: str = "UTC"
+) -> AsyncIOScheduler:
+    scheduler = AsyncIOScheduler(timezone=timezone)
 
     async def run_job() -> None:
         logger.info("scheduled sync start")

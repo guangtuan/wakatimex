@@ -4,6 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from typing import TypedDict
+from zoneinfo import ZoneInfo
 
 from wakatime_sync.sys.db import Heartbeat, UserAgent
 
@@ -16,30 +17,38 @@ HEARTBEAT_TIMEOUT_SECONDS: int = 15 * 60  # 15 minutes
 class Window:
     start: date
     end: date
+    timezone: ZoneInfo = UTC
 
     @property
     def start_ts(self) -> float:
-        return datetime.combine(self.start, time.min, UTC).timestamp()
+        return datetime.combine(self.start, time.min, self.timezone).timestamp()
 
     @property
     def end_exclusive_ts(self) -> float:
-        return datetime.combine(self.end + timedelta(days=1), time.min, UTC).timestamp()
+        return datetime.combine(self.end + timedelta(days=1), time.min, self.timezone).timestamp()
 
 
-def default_last_7_days() -> Window:
-    end = datetime.now(UTC).date()
+def resolve_timezone(name: str | None) -> ZoneInfo:
+    if not name:
+        return UTC
+    return ZoneInfo(name)
+
+
+def default_last_7_days(timezone: ZoneInfo = UTC) -> Window:
+    end = datetime.now(timezone).date()
     start = end - timedelta(days=6)
-    return Window(start=start, end=end)
+    return Window(start=start, end=end, timezone=timezone)
 
 
-def parse_window(start: str | None, end: str | None) -> Window:
+def parse_window(start: str | None, end: str | None, timezone_name: str | None = None) -> Window:
+    timezone = resolve_timezone(timezone_name)
     if start is None or end is None:
-        return default_last_7_days()
+        return default_last_7_days(timezone)
     start_date = date.fromisoformat(start)
     end_date = date.fromisoformat(end)
     if start_date > end_date:
         raise ValueError("start must be <= end")
-    return Window(start=start_date, end=end_date)
+    return Window(start=start_date, end=end_date, timezone=timezone)
 
 
 async def load_heartbeats(window: Window) -> list[Heartbeat]:
@@ -57,8 +66,8 @@ async def load_user_agent_editors() -> dict[str, str]:
     }
 
 
-def to_day(ts: float) -> str:
-    return datetime.fromtimestamp(ts, UTC).date().isoformat()
+def to_day(ts: float, timezone: ZoneInfo = UTC) -> str:
+    return datetime.fromtimestamp(ts, timezone).date().isoformat()
 
 
 def heartbeats_to_seconds(timestamps: list[float], timeout: int = HEARTBEAT_TIMEOUT_SECONDS) -> int:
@@ -79,7 +88,7 @@ def heartbeats_to_seconds(timestamps: list[float], timeout: int = HEARTBEAT_TIME
     return round(total)
 
 
-def summarize_daily(rows: list[Heartbeat]) -> dict[str, dict[str, int]]:
+def summarize_daily(rows: list[Heartbeat], timezone: ZoneInfo = UTC) -> dict[str, dict[str, int]]:
     by_day_times: dict[str, list[float]] = defaultdict(list)
     by_day_count: dict[str, int] = defaultdict(int)
     by_day_ai_insert: dict[str, int] = defaultdict(int)
@@ -88,7 +97,7 @@ def summarize_daily(rows: list[Heartbeat]) -> dict[str, dict[str, int]]:
     by_day_human_delete: dict[str, int] = defaultdict(int)
 
     for hb in rows:
-        day = to_day(hb.time)
+        day = to_day(hb.time, timezone)
         by_day_count[day] += 1
         by_day_times[day].append(hb.time)
         if hb.ai_insert:
@@ -153,6 +162,50 @@ def summarize_breakdown(
         )
     data.sort(key=lambda x: (x["active_seconds"], x["heartbeats"]), reverse=True)
     return data[:limit]
+
+
+class HourlyRow(TypedDict):
+    hour: int
+    heartbeats: int
+    active_minutes: int
+    active_seconds: int
+
+
+def summarize_hourly(rows: list[Heartbeat], timezone: ZoneInfo = UTC) -> list[HourlyRow]:
+    by_hour_count: dict[int, int] = defaultdict(int)
+    by_hour_seconds: dict[int, int] = defaultdict(int)
+
+    for hb in rows:
+        hour = datetime.fromtimestamp(hb.time, timezone).hour
+        by_hour_count[hour] += 1
+
+    for index in range(len(rows) - 1):
+        current = rows[index]
+        nxt = rows[index + 1]
+        gap = nxt.time - current.time
+        if gap <= 0 or gap >= HEARTBEAT_TIMEOUT_SECONDS:
+            continue
+
+        cursor = datetime.fromtimestamp(current.time, timezone)
+        end_dt = datetime.fromtimestamp(nxt.time, timezone)
+
+        while cursor < end_dt:
+            next_hour = cursor.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+            chunk_end = min(end_dt, next_hour)
+            chunk_seconds = round((chunk_end - cursor).total_seconds())
+            if chunk_seconds > 0:
+                by_hour_seconds[cursor.hour] += chunk_seconds
+            cursor = chunk_end
+
+    return [
+        {
+            "hour": hour,
+            "heartbeats": by_hour_count[hour],
+            "active_minutes": by_hour_seconds[hour] // 60,
+            "active_seconds": by_hour_seconds[hour],
+        }
+        for hour in range(24)
+    ]
 
 
 def _breakdown_name(

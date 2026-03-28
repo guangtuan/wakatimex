@@ -21,14 +21,19 @@ const calendarHoverTitleEl = document.getElementById('calendar-hover-title');
 const calendarHoverSummaryEl = document.getElementById('calendar-hover-summary');
 const calendarHoverLanguagesEl = document.getElementById('calendar-hover-languages');
 const calendarHoverProjectsEl = document.getElementById('calendar-hover-projects');
+const calendarHourlyPanelEl = document.getElementById('calendar-hourly-panel');
+const calendarHourlyTitleEl = document.getElementById('calendar-hourly-title');
+const calendarHourlySummaryEl = document.getElementById('calendar-hourly-summary');
+const calendarHourlyListEl = document.getElementById('calendar-hourly-list');
 const langSwitchEl = document.getElementById('lang-switch');
 const langEnBtn = document.getElementById('lang-en-btn');
 const langZhBtn = document.getElementById('lang-zh-btn');
 const pageType = document.body?.dataset.page || 'home';
+const APP_TIMEZONE = 'Asia/Shanghai';
 
 let languageChart = null;
 let projectChart = null;
-let currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let currentMonth = new Date();
 let currentSelectedDate = null;
 let previewRequestToken = 0;
 
@@ -137,6 +142,15 @@ const I18N = {
       summary_heartbeats: '{heartbeats} heartbeats',
       no_language_activity: 'No language activity for this day.',
       no_project_activity: 'No project activity for this day.',
+      hourly_distribution: '24h Distribution',
+      hourly_select_day: 'Select a day',
+      hourly_click_date: 'Click a date to view hourly activity',
+      hourly_peak: 'Peak {hour}',
+      hourly_no_activity: 'No hourly activity for this day.',
+      hourly_loading: 'Loading hourly activity…',
+      hourly_failed: 'Failed to load hourly activity.',
+      hourly_minutes: '{minutes}',
+      hourly_heartbeats: '{heartbeats} hb',
       loading_language: 'Loading language breakdown…',
       loading_project: 'Loading project breakdown…',
       failed_language: 'Failed to load language breakdown.',
@@ -240,6 +254,15 @@ const I18N = {
       summary_heartbeats: '{heartbeats} 条心跳',
       no_language_activity: '当天没有语言统计。',
       no_project_activity: '当天没有项目统计。',
+      hourly_distribution: '24h 分布',
+      hourly_select_day: '选择某一天',
+      hourly_click_date: '点击日期查看逐小时活动',
+      hourly_peak: '高峰 {hour}',
+      hourly_no_activity: '当天没有逐小时活动。',
+      hourly_loading: '正在加载逐小时活动…',
+      hourly_failed: '逐小时活动加载失败。',
+      hourly_minutes: '{minutes}',
+      hourly_heartbeats: '{heartbeats} 条',
       loading_language: '正在加载语言统计…',
       loading_project: '正在加载项目统计…',
       failed_language: '语言统计加载失败。',
@@ -333,9 +356,6 @@ function applyTranslations() {
     el.textContent = t(el.dataset.i18n);
   });
 
-  if (totalHeartbeatsDetailEl && !currentSelectedDate) {
-    totalHeartbeatsDetailEl.textContent = t('summary.this_month');
-  }
   if (langSwitchEl) {
     langSwitchEl.setAttribute('aria-label', t('nav.lang_switch_label'));
   }
@@ -441,6 +461,22 @@ function fmtNumber(num) {
   return String(num);
 }
 
+function timezoneParts(date = new Date(), options = {}) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    ...options,
+  }).formatToParts(date);
+  return Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+}
+
+function appToday() {
+  const parts = timezoneParts();
+  return new Date(Number(parts.year), Number(parts.month) - 1, Number(parts.day));
+}
+
 function toIsoDate(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -466,11 +502,11 @@ function shiftMonth(date, offset) {
 }
 
 function monthLabel(date) {
-  return date.toLocaleDateString(localeForLanguage(), { month: 'long', year: 'numeric' });
+  return date.toLocaleDateString(localeForLanguage(), { month: 'long', year: 'numeric', timeZone: APP_TIMEZONE });
 }
 
 function shortDateLabel(dateString) {
-  return fromIsoDate(dateString).toLocaleDateString(localeForLanguage(), { month: 'short', day: 'numeric' });
+  return fromIsoDate(dateString).toLocaleDateString(localeForLanguage(), { month: 'short', day: 'numeric', timeZone: APP_TIMEZONE });
 }
 
 function fullDateLabel(dateString) {
@@ -479,6 +515,7 @@ function fullDateLabel(dateString) {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    timeZone: APP_TIMEZONE,
   });
 }
 
@@ -490,7 +527,7 @@ function monthRange(date) {
 }
 
 function syncRangeDefaults() {
-  const today = new Date();
+  const today = appToday();
   const start = new Date(today);
   const isMonday = today.getDay() === 1;
   start.setDate(today.getDate() - (isMonday ? 3 : 1));
@@ -542,7 +579,7 @@ async function loadState() {
     const last = data.last_sync_at;
     if (last && last !== 'never') {
       const d = new Date(last);
-      lastSyncEl.textContent = t('state.synced', { time: d.toLocaleString(localeForLanguage()) });
+      lastSyncEl.textContent = t('state.synced', { time: d.toLocaleString(localeForLanguage(), { timeZone: APP_TIMEZONE }) });
     } else {
       lastSyncEl.textContent = t('state.never_synced');
     }
@@ -668,6 +705,56 @@ function renderCalendarSummary(minutes, heartbeats) {
   calendarHoverSummaryEl.textContent = t('calendar.no_activity');
 }
 
+function formatHourLabel(hour) {
+  return `${String(hour).padStart(2, '0')}:00`;
+}
+
+function renderHourlySummary(totalMinutes, peakHour) {
+  if (!calendarHourlySummaryEl) {
+    return;
+  }
+
+  if (!totalMinutes) {
+    calendarHourlySummaryEl.textContent = t('calendar.hourly_no_activity');
+    return;
+  }
+
+  calendarHourlySummaryEl.innerHTML = `
+    <span>${t('calendar.summary_minutes', { minutes: fmtMinutes(totalMinutes) })}</span>
+    <span class="calendar-hourly-summary-sep">·</span>
+    <span>${t('calendar.hourly_peak', { hour: formatHourLabel(peakHour ?? 0) })}</span>
+  `;
+}
+
+function renderHourlyDistribution(hours, emptyMessage) {
+  if (!calendarHourlyListEl) {
+    return;
+  }
+
+  const activeHours = (hours || []).filter((item) => (item.active_minutes || 0) > 0 || (item.heartbeats || 0) > 0);
+  if (!activeHours.length) {
+    calendarHourlyListEl.innerHTML = `<div class="calendar-hover-empty">${emptyMessage}</div>`;
+    return;
+  }
+
+  const maxMinutes = Math.max(...activeHours.map((item) => item.active_minutes || 0), 0);
+  calendarHourlyListEl.innerHTML = (hours || []).map((item) => {
+    const pct = maxMinutes > 0 ? ((item.active_minutes || 0) / maxMinutes) * 100 : 0;
+    return `
+      <div class="calendar-hourly-row">
+        <div class="calendar-hourly-label">${formatHourLabel(item.hour)}</div>
+        <div class="calendar-hourly-bar">
+          <div class="calendar-hourly-fill" style="width: ${pct}%;"></div>
+        </div>
+        <div class="calendar-hourly-meta">
+          <span>${t('calendar.hourly_minutes', { minutes: fmtMinutes(item.active_minutes || 0) })}</span>
+          <span>${t('calendar.hourly_heartbeats', { heartbeats: fmtNumber(item.heartbeats || 0) })}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 function renderHoverBreakdown(el, items, scope, colorOffset, emptyMessage) {
   if (!el) {
     return;
@@ -713,17 +800,26 @@ function setActiveCalendarCell(dateString) {
   }
 }
 
-function renderSelectedDayPanel(dateString, minutes, heartbeats, languages, projects) {
+function renderSelectedDayPanel(dateString, minutes, heartbeats, languages, projects, hourly) {
   if (!calendarSidePanelEl || !calendarHoverTitleEl) {
     return;
   }
   currentSelectedDate = dateString;
   setActiveCalendarCell(dateString);
   calendarSidePanelEl.classList.toggle('is-empty', heartbeats <= 0);
+  if (calendarHourlyPanelEl) {
+    calendarHourlyPanelEl.classList.toggle('is-empty', heartbeats <= 0);
+  }
   calendarHoverTitleEl.textContent = fullDateLabel(dateString);
   renderCalendarSummary(minutes, heartbeats);
   renderHoverBreakdown(calendarHoverLanguagesEl, languages, 'language', 0, t('calendar.no_language_activity'));
   renderHoverBreakdown(calendarHoverProjectsEl, projects, 'project', 2, t('calendar.no_project_activity'));
+
+  renderHourlySummary(
+    hourly?.total_active_minutes || 0,
+    typeof hourly?.peak_hour === 'number' ? hourly.peak_hour : null,
+  );
+  renderHourlyDistribution(hourly?.hours || [], t('calendar.hourly_no_activity'));
 }
 
 function renderSelectedDayLoading(dateString, minutes, heartbeats) {
@@ -733,18 +829,75 @@ function renderSelectedDayLoading(dateString, minutes, heartbeats) {
   currentSelectedDate = dateString;
   setActiveCalendarCell(dateString);
   calendarSidePanelEl.classList.toggle('is-empty', heartbeats <= 0);
+  if (calendarHourlyPanelEl) {
+    calendarHourlyPanelEl.classList.toggle('is-empty', heartbeats <= 0);
+  }
   calendarHoverTitleEl.textContent = fullDateLabel(dateString);
   renderCalendarSummary(minutes, heartbeats);
-
   if (heartbeats > 0) {
     calendarHoverLanguagesEl.innerHTML = `<div class="calendar-hover-empty">${t('calendar.loading_language')}</div>`;
     calendarHoverProjectsEl.innerHTML = `<div class="calendar-hover-empty">${t('calendar.loading_project')}</div>`;
+    if (calendarHourlySummaryEl) {
+      calendarHourlySummaryEl.textContent = t('calendar.hourly_loading');
+    }
+    renderHourlyDistribution([], t('calendar.hourly_loading'));
     return true;
   }
 
   renderHoverBreakdown(calendarHoverLanguagesEl, [], 'language', 0, t('calendar.no_language_activity'));
   renderHoverBreakdown(calendarHoverProjectsEl, [], 'project', 2, t('calendar.no_project_activity'));
+  renderHourlySummary(0, null);
+  renderHourlyDistribution([], t('calendar.hourly_no_activity'));
   return false;
+}
+
+function buildCalendarSkeleton(month) {
+  const firstDay = monthStart(month);
+  const lastDay = monthEnd(month);
+  const cells = [];
+  const leadingEmptyCells = (firstDay.getDay() + 6) % 7;
+
+  for (let i = 0; i < leadingEmptyCells; i += 1) {
+    cells.push('<div class="calendar-cell is-empty" aria-hidden="true"></div>');
+  }
+
+  for (let day = 1; day <= lastDay.getDate(); day += 1) {
+    const date = new Date(month.getFullYear(), month.getMonth(), day);
+    const iso = toIsoDate(date);
+    cells.push(`
+      <button
+        type="button"
+        class="calendar-cell is-loading level-0 no-activity"
+        data-date="${iso}"
+        data-minutes="0"
+        data-heartbeats="0"
+        title="${iso}"
+        aria-label="${iso}"
+      >
+        <span class="calendar-day">${day}</span>
+        <span class="calendar-duration">--</span>
+        <span class="calendar-heartbeats">--</span>
+      </button>
+    `);
+  }
+
+  while (cells.length % 7 !== 0) {
+    cells.push('<div class="calendar-cell is-empty" aria-hidden="true"></div>');
+  }
+
+  return cells.join('');
+}
+
+function renderCalendarSkeleton(month) {
+  if (!dailyCalendarGridEl || !calendarMonthLabelEl) {
+    if (calendarMonthLabelEl) {
+      calendarMonthLabelEl.textContent = monthLabel(month);
+    }
+    return;
+  }
+
+  calendarMonthLabelEl.textContent = monthLabel(month);
+  dailyCalendarGridEl.innerHTML = buildCalendarSkeleton(month);
 }
 
 function resolveSelectedCalendarDate(daily) {
@@ -753,7 +906,7 @@ function resolveSelectedCalendarDate(daily) {
     return currentSelectedDate;
   }
 
-  const todayIso = toIsoDate(new Date());
+  const todayIso = toIsoDate(appToday());
   if (todayIso >= start && todayIso <= end) {
     return todayIso;
   }
@@ -778,16 +931,17 @@ async function selectCalendarDay(dateString, minutes, heartbeats) {
 
   const cached = dailyBreakdownCache.get(dateString);
   if (cached) {
-    renderSelectedDayPanel(dateString, minutes, heartbeats, cached.languages, cached.projects);
+    renderSelectedDayPanel(dateString, minutes, heartbeats, cached.languages, cached.projects, cached.hourly);
     return;
   }
 
   const requestToken = ++previewRequestToken;
 
   try {
-    const [languages, projects] = await Promise.all([
+    const [languages, projects, hourly] = await Promise.all([
       fetchJson(`/api/stats/breakdown?by=language&limit=5&start=${dateString}&end=${dateString}`),
       fetchJson(`/api/stats/breakdown?by=project&limit=5&start=${dateString}&end=${dateString}`),
+      fetchJson(`/api/stats/hourly?start=${dateString}&end=${dateString}`),
     ]);
 
     if (requestToken !== previewRequestToken || currentSelectedDate !== dateString) {
@@ -797,9 +951,10 @@ async function selectCalendarDay(dateString, minutes, heartbeats) {
     const payload = {
       languages: languages.items || [],
       projects: projects.items || [],
+      hourly,
     };
     dailyBreakdownCache.set(dateString, payload);
-    renderSelectedDayPanel(dateString, minutes, heartbeats, payload.languages, payload.projects);
+    renderSelectedDayPanel(dateString, minutes, heartbeats, payload.languages, payload.projects, payload.hourly);
   } catch {
     if (requestToken !== previewRequestToken || currentSelectedDate !== dateString) {
       return;
@@ -808,6 +963,10 @@ async function selectCalendarDay(dateString, minutes, heartbeats) {
     calendarHoverSummaryEl.textContent = t('calendar.load_error');
     renderHoverBreakdown(calendarHoverLanguagesEl, [], 'language', 0, t('calendar.failed_language'));
     renderHoverBreakdown(calendarHoverProjectsEl, [], 'project', 2, t('calendar.failed_project'));
+    if (calendarHourlySummaryEl) {
+      calendarHourlySummaryEl.textContent = t('calendar.hourly_failed');
+    }
+    renderHourlyDistribution([], t('calendar.hourly_failed'));
   }
 }
 
@@ -821,16 +980,13 @@ function renderDailyCalendar(data) {
   const days = data.days || [];
   const dayMap = new Map(days.map((day) => [day.date, day]));
   const maxMinutes = Math.max(0, ...days.map((day) => day.active_minutes || 0));
-  const todayIso = toIsoDate(new Date());
-  const firstDay = monthStart(currentMonth);
+  const todayIso = toIsoDate(appToday());
   const lastDay = monthEnd(currentMonth);
 
   calendarMonthLabelEl.textContent = monthLabel(currentMonth);
 
-  const cells = [];
-  const leadingEmptyCells = (firstDay.getDay() + 6) % 7;
-  for (let i = 0; i < leadingEmptyCells; i += 1) {
-    cells.push('<div class="calendar-cell is-empty" aria-hidden="true"></div>');
+  if (!dailyCalendarGridEl.querySelector('.calendar-cell[data-date]')) {
+    dailyCalendarGridEl.innerHTML = buildCalendarSkeleton(currentMonth);
   }
 
   for (let day = 1; day <= lastDay.getDate(); day += 1) {
@@ -840,37 +996,35 @@ function renderDailyCalendar(data) {
     const minutes = stats?.active_minutes || 0;
     const heartbeats = stats?.heartbeats || 0;
     const level = calendarLevel(minutes, maxMinutes);
-    const classes = [
+    const activityText = minutes > 0 ? fmtMinutes(minutes) : t('calendar.no_activity');
+
+    const cell = dailyCalendarGridEl.querySelector(`.calendar-cell[data-date="${iso}"]`);
+    if (!cell) {
+      continue;
+    }
+
+    cell.className = [
       'calendar-cell',
       `level-${level}`,
       minutes > 0 ? 'has-activity' : 'no-activity',
-      iso === todayIso ? 'is-today' : '',
+      iso === todayIso && (!currentSelectedDate || currentSelectedDate === todayIso) ? 'is-today' : '',
       currentSelectedDate === iso ? 'is-active' : '',
     ].filter(Boolean).join(' ');
-    const activityText = minutes > 0 ? fmtMinutes(minutes) : t('calendar.no_activity');
+    cell.dataset.minutes = String(minutes);
+    cell.dataset.heartbeats = String(heartbeats);
+    cell.title = `${iso} · ${activityText} · ${heartbeats} ${t('common.heartbeats')}`;
+    cell.setAttribute('aria-label', `${iso}, ${activityText}, ${heartbeats} ${t('common.heartbeats')}`);
 
-    cells.push(`
-      <button
-        type="button"
-        class="${classes}"
-        data-date="${iso}"
-        data-minutes="${minutes}"
-        data-heartbeats="${heartbeats}"
-        title="${iso} · ${activityText} · ${heartbeats} ${t('common.heartbeats')}"
-        aria-label="${iso}, ${activityText}, ${heartbeats} ${t('common.heartbeats')}"
-      >
-        <span class="calendar-day">${day}</span>
-        <span class="calendar-duration">${minutes > 0 ? fmtMinutes(minutes) : '—'}</span>
-        <span class="calendar-heartbeats">${heartbeats > 0 ? `${fmtNumber(heartbeats)} hb` : '0 hb'}</span>
-      </button>
-    `);
+    const durationEl = cell.querySelector('.calendar-duration');
+    const heartbeatsEl = cell.querySelector('.calendar-heartbeats');
+
+    if (durationEl) {
+      durationEl.textContent = minutes > 0 ? fmtMinutes(minutes) : '—';
+    }
+    if (heartbeatsEl) {
+      heartbeatsEl.textContent = heartbeats > 0 ? `${fmtNumber(heartbeats)} hb` : '0 hb';
+    }
   }
-
-  while (cells.length % 7 !== 0) {
-    cells.push('<div class="calendar-cell is-empty" aria-hidden="true"></div>');
-  }
-
-  dailyCalendarGridEl.innerHTML = cells.join('');
 }
 
 function initPieChart(canvasId, items, scope = 'generic', colorOffset = 0) {
@@ -931,10 +1085,11 @@ function initPieChart(canvasId, items, scope = 'generic', colorOffset = 0) {
 
 async function loadStats() {
   try {
+    renderCalendarSkeleton(currentMonth);
     await ensureLanguageColorsLoaded();
 
     const { start, end } = monthRange(currentMonth);
-    const todayIso = toIsoDate(new Date());
+    const todayIso = toIsoDate(appToday());
     const monthText = monthLabel(currentMonth);
 
     const [todayDaily, daily, langs, projects, editors, aiStats] = await Promise.all([
@@ -963,10 +1118,6 @@ async function loadStats() {
     if (totalHeartbeatsEl) {
       totalHeartbeatsEl.textContent = fmtNumber(daily.total_heartbeats);
     }
-    if (totalHeartbeatsDetailEl) {
-      totalHeartbeatsDetailEl.textContent = monthText;
-    }
-
     const aiInsertEl = document.getElementById('ai-insert');
     const aiDeleteEl = document.getElementById('ai-delete');
     const humanInsertEl = document.getElementById('human-insert');
@@ -1094,6 +1245,7 @@ if (syncRangeBtn) {
 }
 
 applyTranslations();
+renderCalendarSkeleton(currentMonth);
 loadHealth();
 loadState();
 loadStats();
