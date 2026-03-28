@@ -24,6 +24,7 @@ const calendarHoverProjectsEl = document.getElementById('calendar-hover-projects
 const langSwitchEl = document.getElementById('lang-switch');
 const langEnBtn = document.getElementById('lang-en-btn');
 const langZhBtn = document.getElementById('lang-zh-btn');
+const pageType = document.body?.dataset.page || 'home';
 
 let languageChart = null;
 let projectChart = null;
@@ -76,13 +77,20 @@ let languageColorsPromise = null;
 const I18N = {
   en: {
     doc: {
-      title: 'WakaTime Activity',
+      home_title: 'WakaTime Activity',
+      charts_title: 'WakaTime Charts',
     },
     brand: {
       activity: 'Activity',
     },
     nav: {
       lang_switch_label: 'Language switch',
+    },
+    page: {
+      home: 'Home',
+      charts: 'Charts',
+      charts_title: 'Monthly charts and rankings',
+      charts_description: 'Open language, project, AI, and ranking panels on a dedicated page.',
     },
     hero: {
       title: 'Activity Overview',
@@ -172,13 +180,20 @@ const I18N = {
   },
   zh: {
     doc: {
-      title: 'WakaTime 活动面板',
+      home_title: 'WakaTime 活动面板',
+      charts_title: 'WakaTime 图表面板',
     },
     brand: {
       activity: '活动',
     },
     nav: {
       lang_switch_label: '语言切换',
+    },
+    page: {
+      home: '首页',
+      charts: '图表',
+      charts_title: '月度图表与排行',
+      charts_description: '把语言、项目、AI 和排行面板放到独立页面查看。',
     },
     hero: {
       title: '活动概览',
@@ -312,18 +327,26 @@ function setStoredLanguage(lang) {
 
 function applyTranslations() {
   document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
-  document.title = t('doc.title');
+  document.title = pageType === 'charts' ? t('doc.charts_title') : t('doc.home_title');
 
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     el.textContent = t(el.dataset.i18n);
   });
 
-  totalHeartbeatsDetailEl.textContent = currentSelectedDate ? totalHeartbeatsDetailEl.textContent : t('summary.this_month');
-  langSwitchEl.setAttribute('aria-label', t('nav.lang_switch_label'));
-  prevMonthBtn.setAttribute('aria-label', t('calendar.prev_month'));
-  nextMonthBtn.setAttribute('aria-label', t('calendar.next_month'));
+  if (totalHeartbeatsDetailEl && !currentSelectedDate) {
+    totalHeartbeatsDetailEl.textContent = t('summary.this_month');
+  }
+  if (langSwitchEl) {
+    langSwitchEl.setAttribute('aria-label', t('nav.lang_switch_label'));
+  }
+  if (prevMonthBtn) {
+    prevMonthBtn.setAttribute('aria-label', t('calendar.prev_month'));
+  }
+  if (nextMonthBtn) {
+    nextMonthBtn.setAttribute('aria-label', t('calendar.next_month'));
+  }
 
-  [langEnBtn, langZhBtn].forEach((button) => {
+  [langEnBtn, langZhBtn].filter(Boolean).forEach((button) => {
     const active = button.dataset.lang === currentLang;
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', active ? 'true' : 'false');
@@ -499,6 +522,9 @@ async function fetchJson(url, options = {}) {
 }
 
 async function loadHealth() {
+  if (!versionEl) {
+    return;
+  }
   try {
     const data = await fetchJson('/api/health');
     versionEl.textContent = `v${data.version}`;
@@ -508,6 +534,9 @@ async function loadHealth() {
 }
 
 async function loadState() {
+  if (!lastSyncEl) {
+    return;
+  }
   try {
     const data = await fetchJson('/api/sync/state');
     const last = data.last_sync_at;
@@ -580,6 +609,9 @@ async function runSyncRange() {
 }
 
 function renderDetailList(el, items, scope = 'generic', colorOffset = 0) {
+  if (!el) {
+    return;
+  }
   if (!items || !items.length) {
     el.innerHTML = `<div class="detail-item"><span class="detail-name">${t('common.no_data')}</span></div>`;
     return;
@@ -622,6 +654,9 @@ function renderLegend(containerId, items, scope = 'generic', colorOffset = 0) {
 }
 
 function renderCalendarSummary(minutes, heartbeats) {
+  if (!calendarHoverSummaryEl) {
+    return;
+  }
   if (heartbeats > 0) {
     calendarHoverSummaryEl.innerHTML = `
       <span>${t('calendar.summary_minutes', { minutes: fmtMinutes(minutes) })}</span>
@@ -634,6 +669,9 @@ function renderCalendarSummary(minutes, heartbeats) {
 }
 
 function renderHoverBreakdown(el, items, scope, colorOffset, emptyMessage) {
+  if (!el) {
+    return;
+  }
   if (!items || !items.length) {
     el.innerHTML = `<div class="calendar-hover-empty">${emptyMessage}</div>`;
     return;
@@ -658,6 +696,9 @@ function renderHoverBreakdown(el, items, scope, colorOffset, emptyMessage) {
 }
 
 function setActiveCalendarCell(dateString) {
+  if (!dailyCalendarGridEl) {
+    return;
+  }
   dailyCalendarGridEl
     .querySelectorAll('.calendar-cell.is-active')
     .forEach((cell) => cell.classList.remove('is-active'));
@@ -673,6 +714,9 @@ function setActiveCalendarCell(dateString) {
 }
 
 function renderSelectedDayPanel(dateString, minutes, heartbeats, languages, projects) {
+  if (!calendarSidePanelEl || !calendarHoverTitleEl) {
+    return;
+  }
   currentSelectedDate = dateString;
   setActiveCalendarCell(dateString);
   calendarSidePanelEl.classList.toggle('is-empty', heartbeats <= 0);
@@ -683,6 +727,9 @@ function renderSelectedDayPanel(dateString, minutes, heartbeats, languages, proj
 }
 
 function renderSelectedDayLoading(dateString, minutes, heartbeats) {
+  if (!calendarSidePanelEl || !calendarHoverTitleEl) {
+    return false;
+  }
   currentSelectedDate = dateString;
   setActiveCalendarCell(dateString);
   calendarSidePanelEl.classList.toggle('is-empty', heartbeats <= 0);
@@ -765,6 +812,12 @@ async function selectCalendarDay(dateString, minutes, heartbeats) {
 }
 
 function renderDailyCalendar(data) {
+  if (!dailyCalendarGridEl || !calendarMonthLabelEl) {
+    if (calendarMonthLabelEl) {
+      calendarMonthLabelEl.textContent = monthLabel(currentMonth);
+    }
+    return;
+  }
   const days = data.days || [];
   const dayMap = new Map(days.map((day) => [day.date, day]));
   const maxMinutes = Math.max(0, ...days.map((day) => day.active_minutes || 0));
@@ -821,7 +874,11 @@ function renderDailyCalendar(data) {
 }
 
 function initPieChart(canvasId, items, scope = 'generic', colorOffset = 0) {
-  const ctx = document.getElementById(canvasId).getContext('2d');
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) {
+    return;
+  }
+  const ctx = canvas.getContext('2d');
 
   const chart = canvasId === 'languageChart' ? languageChart : projectChart;
   if (chart) {
@@ -890,34 +947,74 @@ async function loadStats() {
     ]);
 
     const today = todayDaily.days[0] || null;
-    todayActiveEl.textContent = today ? fmtMinutes(today.active_minutes) : '0m';
-    todayHeartbeatsEl.textContent = today ? fmtNumber(today.heartbeats) : '0';
+    if (todayActiveEl) {
+      todayActiveEl.textContent = today ? fmtMinutes(today.active_minutes) : '0m';
+    }
+    if (todayHeartbeatsEl) {
+      todayHeartbeatsEl.textContent = today ? fmtNumber(today.heartbeats) : '0';
+    }
 
-    weekActiveEl.textContent = fmtMinutes(daily.total_active_minutes);
-    bestDayEl.textContent = daily.best_day ? shortDateLabel(daily.best_day) : '-';
-    totalHeartbeatsEl.textContent = fmtNumber(daily.total_heartbeats);
-    totalHeartbeatsDetailEl.textContent = monthText;
+    if (weekActiveEl) {
+      weekActiveEl.textContent = fmtMinutes(daily.total_active_minutes);
+    }
+    if (bestDayEl) {
+      bestDayEl.textContent = daily.best_day ? shortDateLabel(daily.best_day) : '-';
+    }
+    if (totalHeartbeatsEl) {
+      totalHeartbeatsEl.textContent = fmtNumber(daily.total_heartbeats);
+    }
+    if (totalHeartbeatsDetailEl) {
+      totalHeartbeatsDetailEl.textContent = monthText;
+    }
 
-    document.getElementById('ai-insert').textContent = fmtNumber(aiStats.ai_line_changes);
-    document.getElementById('ai-delete').textContent = `${(aiStats.ai_percentage || 0).toFixed(1)}%`;
-    document.getElementById('human-insert').textContent = fmtNumber(aiStats.human_line_changes);
-    document.getElementById('human-delete').textContent = fmtNumber(aiStats.total_changes || 0);
+    const aiInsertEl = document.getElementById('ai-insert');
+    const aiDeleteEl = document.getElementById('ai-delete');
+    const humanInsertEl = document.getElementById('human-insert');
+    const humanDeleteEl = document.getElementById('human-delete');
+    if (aiInsertEl) {
+      aiInsertEl.textContent = fmtNumber(aiStats.ai_line_changes);
+    }
+    if (aiDeleteEl) {
+      aiDeleteEl.textContent = `${(aiStats.ai_percentage || 0).toFixed(1)}%`;
+    }
+    if (humanInsertEl) {
+      humanInsertEl.textContent = fmtNumber(aiStats.human_line_changes);
+    }
+    if (humanDeleteEl) {
+      humanDeleteEl.textContent = fmtNumber(aiStats.total_changes || 0);
+    }
 
     const aiPercent = aiStats.ai_percentage || 0;
     const humanPercent = 100 - aiPercent;
-    document.getElementById('ai-bar').style.width = `${aiPercent}%`;
-    document.getElementById('human-bar').style.width = `${humanPercent}%`;
-    document.getElementById('ai-percent').textContent = `${aiPercent.toFixed(1)}%`;
-    document.getElementById('human-percent').textContent = `${humanPercent.toFixed(1)}%`;
+    const aiBarEl = document.getElementById('ai-bar');
+    const humanBarEl = document.getElementById('human-bar');
+    const aiPercentEl = document.getElementById('ai-percent');
+    const humanPercentEl = document.getElementById('human-percent');
+    if (aiBarEl) {
+      aiBarEl.style.width = `${aiPercent}%`;
+    }
+    if (humanBarEl) {
+      humanBarEl.style.width = `${humanPercent}%`;
+    }
+    if (aiPercentEl) {
+      aiPercentEl.textContent = `${aiPercent.toFixed(1)}%`;
+    }
+    if (humanPercentEl) {
+      humanPercentEl.textContent = `${humanPercent.toFixed(1)}%`;
+    }
 
     renderDailyCalendar(daily);
-    const selectedDate = resolveSelectedCalendarDate(daily);
-    const selectedDay = (daily.days || []).find((day) => day.date === selectedDate);
-    await selectCalendarDay(
-      selectedDate,
-      selectedDay?.active_minutes || 0,
-      selectedDay?.heartbeats || 0,
-    );
+    if (dailyCalendarGridEl && calendarSidePanelEl) {
+      const selectedDate = resolveSelectedCalendarDate(daily);
+      const selectedDay = (daily.days || []).find((day) => day.date === selectedDate);
+      await selectCalendarDay(
+        selectedDate,
+        selectedDay?.active_minutes || 0,
+        selectedDay?.heartbeats || 0,
+      );
+    } else if (calendarMonthLabelEl) {
+      calendarMonthLabelEl.textContent = monthText;
+    }
     initPieChart('languageChart', langs.items || [], 'language', 0);
     initPieChart('projectChart', projects.items || [], 'project', 2);
     renderLegend('language-legend', langs.items || [], 'language', 0);
@@ -948,41 +1045,53 @@ function handleCalendarCellInteraction(event) {
   );
 }
 
-dailyCalendarGridEl.addEventListener('click', handleCalendarCellInteraction);
-dailyCalendarGridEl.addEventListener('focusin', handleCalendarCellInteraction);
-dailyCalendarGridEl.addEventListener('keydown', (event) => {
-  if (event.key !== 'Enter' && event.key !== ' ') {
-    return;
-  }
+if (dailyCalendarGridEl) {
+  dailyCalendarGridEl.addEventListener('click', handleCalendarCellInteraction);
+  dailyCalendarGridEl.addEventListener('focusin', handleCalendarCellInteraction);
+  dailyCalendarGridEl.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
 
-  const cell = getCalendarCell(event.target);
-  if (!cell) {
-    return;
-  }
+    const cell = getCalendarCell(event.target);
+    if (!cell) {
+      return;
+    }
 
-  event.preventDefault();
-  void selectCalendarDay(
-    cell.dataset.date,
-    Number(cell.dataset.minutes || 0),
-    Number(cell.dataset.heartbeats || 0),
-  );
-});
+    event.preventDefault();
+    void selectCalendarDay(
+      cell.dataset.date,
+      Number(cell.dataset.minutes || 0),
+      Number(cell.dataset.heartbeats || 0),
+    );
+  });
+}
 
-prevMonthBtn.addEventListener('click', async () => {
-  currentMonth = shiftMonth(currentMonth, -1);
-  await loadStats();
-});
+if (prevMonthBtn) {
+  prevMonthBtn.addEventListener('click', async () => {
+    currentMonth = shiftMonth(currentMonth, -1);
+    await loadStats();
+  });
+}
 
-nextMonthBtn.addEventListener('click', async () => {
-  currentMonth = shiftMonth(currentMonth, 1);
-  await loadStats();
-});
+if (nextMonthBtn) {
+  nextMonthBtn.addEventListener('click', async () => {
+    currentMonth = shiftMonth(currentMonth, 1);
+    await loadStats();
+  });
+}
 
-langEnBtn.addEventListener('click', () => setLanguage('en'));
-langZhBtn.addEventListener('click', () => setLanguage('zh'));
+if (langEnBtn) {
+  langEnBtn.addEventListener('click', () => setLanguage('en'));
+}
+if (langZhBtn) {
+  langZhBtn.addEventListener('click', () => setLanguage('zh'));
+}
 
 ensureSyncRangeDefaults();
-syncRangeBtn.addEventListener('click', runSyncRange);
+if (syncRangeBtn) {
+  syncRangeBtn.addEventListener('click', runSyncRange);
+}
 
 applyTranslations();
 loadHealth();

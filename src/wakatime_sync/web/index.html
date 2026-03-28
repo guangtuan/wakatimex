@@ -12,7 +12,7 @@
     <link rel="shortcut icon" href="/assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
-  <body>
+  <body data-page="home">
     <div class="app">
       <nav class="navbar">
         <div class="nav-brand">
@@ -32,6 +32,10 @@
           <span class="brand-version" id="version">v?.?.?</span>
         </div>
         <div class="nav-meta">
+          <div class="page-nav" aria-label="Page navigation">
+            <a class="page-nav-link is-active" href="/index.html" data-i18n="page.home">Home</a>
+            <a class="page-nav-link" href="/chart.html" data-i18n="page.charts">Charts</a>
+          </div>
           <div id="lang-switch" class="lang-switch" role="group" aria-label="Language switch">
             <button id="lang-en-btn" class="lang-btn" type="button" data-lang="en">EN</button>
             <button id="lang-zh-btn" class="lang-btn" type="button" data-lang="zh">中</button>
@@ -163,107 +167,6 @@
             </div>
           </div>
 
-          <div class="chart-container">
-            <div class="chart-header">
-              <h2 data-i18n="sections.languages">Languages</h2>
-            </div>
-            <div class="chart-body">
-              <canvas id="languageChart"></canvas>
-            </div>
-            <div class="chart-legend" id="language-legend"></div>
-          </div>
-
-          <div class="chart-container">
-            <div class="chart-header">
-              <h2 data-i18n="sections.projects">Projects</h2>
-            </div>
-            <div class="chart-body">
-              <canvas id="projectChart"></canvas>
-            </div>
-            <div class="chart-legend" id="project-legend"></div>
-          </div>
-        </section>
-
-        <section class="ai-stats-section">
-          <h2 data-i18n="ai.title">AI Coding Activity</h2>
-          <div class="ai-stats-grid">
-            <div class="ai-stat-card ai-tone">
-              <div class="ai-stat-icon ai">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                  <path d="M2 17l10 5 10-5"/>
-                  <path d="M2 12l10 5 10-5"/>
-                </svg>
-              </div>
-              <div class="ai-stat-content">
-                <span class="ai-stat-label" data-i18n="ai.ai_line_changes">AI Line Changes</span>
-                <span class="ai-stat-value" id="ai-insert">0</span>
-              </div>
-            </div>
-            <div class="ai-stat-card ai-tone">
-              <div class="ai-stat-icon ai">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                  <path d="M2 17l10 5 10-5"/>
-                  <path d="M2 12l10 5 10-5"/>
-                </svg>
-              </div>
-              <div class="ai-stat-content">
-                <span class="ai-stat-label" data-i18n="ai.ai_share">AI Share</span>
-                <span class="ai-stat-value" id="ai-delete">0%</span>
-              </div>
-            </div>
-            <div class="ai-stat-card human-tone">
-              <div class="ai-stat-icon human">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
-                </svg>
-              </div>
-              <div class="ai-stat-content">
-                <span class="ai-stat-label" data-i18n="ai.human_line_changes">Human Line Changes</span>
-                <span class="ai-stat-value" id="human-insert">0</span>
-              </div>
-            </div>
-            <div class="ai-stat-card human-tone">
-              <div class="ai-stat-icon human">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
-                </svg>
-              </div>
-              <div class="ai-stat-content">
-                <span class="ai-stat-label" data-i18n="ai.total_line_changes">Total Line Changes</span>
-                <span class="ai-stat-value" id="human-delete">0</span>
-              </div>
-            </div>
-          </div>
-          <div class="ai-percentage-bar">
-            <div class="ai-bar-label" data-i18n="ai.bar_label">AI vs Human Changes</div>
-            <div class="ai-bar-container">
-              <div class="ai-bar ai" id="ai-bar" style="width: 0%"></div>
-              <div class="ai-bar human" id="human-bar" style="width: 100%"></div>
-            </div>
-            <div class="ai-bar-legend">
-              <span class="legend-item ai"><span class="dot"></span> <span data-i18n="ai.legend_ai">AI</span>: <span id="ai-percent">0%</span></span>
-              <span class="legend-item human"><span class="dot"></span> <span data-i18n="ai.legend_human">Human</span>: <span id="human-percent">100%</span></span>
-            </div>
-          </div>
-        </section>
-
-        <section class="details-section">
-          <div class="detail-card">
-            <h2 data-i18n="details.top_languages">Top Languages</h2>
-            <div class="detail-list" id="top-languages"></div>
-          </div>
-          <div class="detail-card">
-            <h2 data-i18n="details.top_projects">Top Projects</h2>
-            <div class="detail-list" id="top-projects"></div>
-          </div>
-          <div class="detail-card">
-            <h2 data-i18n="details.top_editors">Top Editors</h2>
-            <div class="detail-list" id="top-editors"></div>
-          </div>
         </section>
 
       </main>

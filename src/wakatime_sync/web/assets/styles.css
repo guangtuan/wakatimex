@@ -87,6 +87,41 @@ body {
   align-items: center;
 }
 
+.page-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--border-primary);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+}
+
+.page-nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 66px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: background 0.2s, color 0.2s;
+}
+
+.page-nav-link:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.page-nav-link.is-active {
+  background: var(--accent-primary);
+  color: #ffffff;
+}
+
 .lang-switch {
   display: inline-flex;
   align-items: center;
@@ -886,6 +921,48 @@ button.calendar-cell {
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-primary);
+}
+
+.page-head-eyebrow {
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.page-head h1 {
+  font-size: 1.1rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.page-head p {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.page-head-copy {
+  min-width: 0;
+}
+
+.page-month-nav {
+  flex-shrink: 0;
+}
+
+.charts-page-section {
+  margin-bottom: 20px;
 }
 
 .detail-list {
@@ -1702,6 +1779,10 @@ button.calendar-cell {
     justify-content: space-between;
   }
 
+  .page-nav {
+    order: -1;
+  }
+
   .nav-sync-group {
     width: 100%;
     flex-wrap: wrap;
@@ -1726,6 +1807,15 @@ button.calendar-cell {
   
   .dashboard {
     padding: 16px;
+  }
+
+  .page-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-month-nav {
+    width: 100%;
   }
   
   .hero h1 {

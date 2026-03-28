@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WakaTime Charts</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="shortcut icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body data-page="charts">
+    <div class="app">
+      <nav class="navbar">
+        <div class="nav-brand">
+          <svg class="logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="4" width="56" height="56" rx="14" fill="#ffffff" stroke="#d0d7de" stroke-width="2"/>
+            <rect x="14" y="14" width="10" height="10" rx="3" fill="#ebedf0"/>
+            <rect x="27" y="14" width="10" height="10" rx="3" fill="#9be9a8"/>
+            <rect x="40" y="14" width="10" height="10" rx="3" fill="#40c463"/>
+            <rect x="14" y="27" width="10" height="10" rx="3" fill="#9be9a8"/>
+            <rect x="27" y="27" width="10" height="10" rx="3" fill="#30a14e"/>
+            <rect x="40" y="27" width="10" height="10" rx="3" fill="#216e39"/>
+            <rect x="14" y="40" width="10" height="10" rx="3" fill="#ebedf0"/>
+            <rect x="27" y="40" width="10" height="10" rx="3" fill="#40c463"/>
+            <rect x="40" y="40" width="10" height="10" rx="3" fill="#30a14e"/>
+          </svg>
+          <span class="brand-text">WakaTimeX</span>
+          <span class="brand-version" id="version">v?.?.?</span>
+        </div>
+        <div class="nav-meta">
+          <div class="page-nav" aria-label="Page navigation">
+            <a class="page-nav-link" href="/index.html" data-i18n="page.home">Home</a>
+            <a class="page-nav-link is-active" href="/chart.html" data-i18n="page.charts">Charts</a>
+          </div>
+          <div id="lang-switch" class="lang-switch" role="group" aria-label="Language switch">
+            <button id="lang-en-btn" class="lang-btn" type="button" data-lang="en">EN</button>
+            <button id="lang-zh-btn" class="lang-btn" type="button" data-lang="zh">中</button>
+          </div>
+          <div class="nav-sync-group">
+            <div class="nav-sync-range">
+              <label class="sync-range-field">
+                <span class="sync-range-label" data-i18n="sync.from">From</span>
+                <input id="sync-start-date" class="sync-date-input" type="date" />
+              </label>
+              <label class="sync-range-field">
+                <span class="sync-range-label" data-i18n="sync.to">To</span>
+                <input id="sync-end-date" class="sync-date-input" type="date" />
+              </label>
+              <button id="sync-range-btn" class="nav-sync-btn primary" type="button">
+                <span data-i18n="sync.run_range">Sync</span>
+              </button>
+            </div>
+          </div>
+          <span class="sync-badge" id="last-sync">loading...</span>
+        </div>
+      </nav>
+
+      <main class="dashboard">
+        <section class="page-head">
+          <div class="page-head-copy">
+            <div class="page-head-eyebrow" data-i18n="page.charts">Charts</div>
+            <h1 data-i18n="page.charts_title">Monthly charts and rankings</h1>
+            <p data-i18n="page.charts_description">Open language, project, AI, and ranking panels on a dedicated page.</p>
+          </div>
+          <div class="chart-actions month-nav page-month-nav">
+            <button id="prev-month-btn" class="month-nav-btn" type="button" aria-label="Previous month">←</button>
+            <span id="calendar-month-label" class="month-label">Current Month</span>
+            <button id="next-month-btn" class="month-nav-btn" type="button" aria-label="Next month">→</button>
+          </div>
+        </section>
+
+        <section class="charts-section charts-page-section">
+          <div class="chart-container">
+            <div class="chart-header">
+              <h2 data-i18n="sections.languages">Languages</h2>
+            </div>
+            <div class="chart-body">
+              <canvas id="languageChart"></canvas>
+            </div>
+            <div class="chart-legend" id="language-legend"></div>
+          </div>
+
+          <div class="chart-container">
+            <div class="chart-header">
+              <h2 data-i18n="sections.projects">Projects</h2>
+            </div>
+            <div class="chart-body">
+              <canvas id="projectChart"></canvas>
+            </div>
+            <div class="chart-legend" id="project-legend"></div>
+          </div>
+        </section>
+
+        <section class="ai-stats-section">
+          <h2 data-i18n="ai.title">AI Coding Activity</h2>
+          <div class="ai-stats-grid">
+            <div class="ai-stat-card ai-tone">
+              <div class="ai-stat-icon ai">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                  <path d="M2 17l10 5 10-5"/>
+                  <path d="M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <div class="ai-stat-content">
+                <span class="ai-stat-label" data-i18n="ai.ai_line_changes">AI Line Changes</span>
+                <span class="ai-stat-value" id="ai-insert">0</span>
+              </div>
+            </div>
+            <div class="ai-stat-card ai-tone">
+              <div class="ai-stat-icon ai">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                  <path d="M2 17l10 5 10-5"/>
+                  <path d="M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <div class="ai-stat-content">
+                <span class="ai-stat-label" data-i18n="ai.ai_share">AI Share</span>
+                <span class="ai-stat-value" id="ai-delete">0%</span>
+              </div>
+            </div>
+            <div class="ai-stat-card human-tone">
+              <div class="ai-stat-icon human">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </div>
+              <div class="ai-stat-content">
+                <span class="ai-stat-label" data-i18n="ai.human_line_changes">Human Line Changes</span>
+                <span class="ai-stat-value" id="human-insert">0</span>
+              </div>
+            </div>
+            <div class="ai-stat-card human-tone">
+              <div class="ai-stat-icon human">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </div>
+              <div class="ai-stat-content">
+                <span class="ai-stat-label" data-i18n="ai.total_line_changes">Total Line Changes</span>
+                <span class="ai-stat-value" id="human-delete">0</span>
+              </div>
+            </div>
+          </div>
+          <div class="ai-percentage-bar">
+            <div class="ai-bar-label" data-i18n="ai.bar_label">AI vs Human Changes</div>
+            <div class="ai-bar-container">
+              <div class="ai-bar ai" id="ai-bar" style="width: 0%"></div>
+              <div class="ai-bar human" id="human-bar" style="width: 100%"></div>
+            </div>
+            <div class="ai-bar-legend">
+              <span class="legend-item ai"><span class="dot"></span> <span data-i18n="ai.legend_ai">AI</span>: <span id="ai-percent">0%</span></span>
+              <span class="legend-item human"><span class="dot"></span> <span data-i18n="ai.legend_human">Human</span>: <span id="human-percent">100%</span></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="details-section">
+          <div class="detail-card">
+            <h2 data-i18n="details.top_languages">Top Languages</h2>
+            <div class="detail-list" id="top-languages"></div>
+          </div>
+          <div class="detail-card">
+            <h2 data-i18n="details.top_projects">Top Projects</h2>
+            <div class="detail-list" id="top-projects"></div>
+          </div>
+          <div class="detail-card">
+            <h2 data-i18n="details.top_editors">Top Editors</h2>
+            <div class="detail-list" id="top-editors"></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <p data-i18n="footer.copy">WakaTime Sync Dashboard © 2025</p>
+      </footer>
+    </div>
+    <script src="/assets/app.js"></script>
+  </body>
+</html>
