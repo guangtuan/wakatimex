@@ -16,6 +16,7 @@ const dailyCalendarGridEl = document.getElementById('daily-calendar-grid');
 const calendarMonthLabelEl = document.getElementById('calendar-month-label');
 const prevMonthBtn = document.getElementById('prev-month-btn');
 const nextMonthBtn = document.getElementById('next-month-btn');
+const todayBtn = document.getElementById('today-btn');
 const calendarSidePanelEl = document.getElementById('calendar-side-panel');
 const calendarHoverTitleEl = document.getElementById('calendar-hover-title');
 const calendarHoverSummaryEl = document.getElementById('calendar-hover-summary');
@@ -128,10 +129,11 @@ const I18N = {
       sat: 'Sat',
       sun: 'Sun',
     },
-    calendar: {
-      title: 'Monthly Coding Calendar',
-      prev_month: 'Previous month',
-      next_month: 'Next month',
+     calendar: {
+       title: 'Monthly Coding Calendar',
+       prev_month: 'Previous month',
+       next_month: 'Next month',
+       today: 'Today',
       less: 'Less',
       more: 'More',
       selected_day: 'Selected Day',
@@ -240,10 +242,11 @@ const I18N = {
       sat: '周六',
       sun: '周日',
     },
-    calendar: {
-      title: '月度编码日历',
-      prev_month: '上个月',
-      next_month: '下个月',
+     calendar: {
+       title: '月度编码日历',
+       prev_month: '上个月',
+       next_month: '下个月',
+       today: '回到今天',
       less: '少',
       more: '多',
       selected_day: '已选日期',
@@ -1007,7 +1010,6 @@ function renderDailyCalendar(data) {
       'calendar-cell',
       `level-${level}`,
       minutes > 0 ? 'has-activity' : 'no-activity',
-      iso === todayIso && (!currentSelectedDate || currentSelectedDate === todayIso) ? 'is-today' : '',
       currentSelectedDate === iso ? 'is-active' : '',
     ].filter(Boolean).join(' ');
     cell.dataset.minutes = String(minutes);
@@ -1228,6 +1230,13 @@ if (prevMonthBtn) {
 if (nextMonthBtn) {
   nextMonthBtn.addEventListener('click', async () => {
     currentMonth = shiftMonth(currentMonth, 1);
+    await loadStats();
+  });
+}
+
+if (todayBtn) {
+  todayBtn.addEventListener('click', async () => {
+    currentMonth = new Date();
     await loadStats();
   });
 }

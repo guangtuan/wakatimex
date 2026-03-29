@@ -27,6 +27,10 @@
 - 导出本地 MySQL SQL 文件：`./export-db.sh`（可选输出路径参数）
 - 本地依赖前提：`compose.yaml` 已内置 MySQL 8；WakaTime key 来自 `~/.wakatime.cfg` 或环境变量
 
+## 本地开发强制规则
+- 每次代码修改完成后，必须先做代码检查（JS 改动跑 `node --check`，Python 改动跑 lint/type check），再重建并重启本地容器：`docker compose -f compose.yaml up --build -d`
+- 容器重建后用健康检查接口确认服务正常，再进行功能验证
+
 ## 代码品味和偏好
 - 优先做小而准的改动，避免无关重构
 - 后端改动优先修根因，不做表面补丁

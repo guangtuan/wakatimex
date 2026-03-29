@@ -657,6 +657,12 @@ body[data-page="home"] .chart-container.large {
   transform: translateY(-1px);
 }
 
+.today-btn {
+  width: auto;
+  padding: 0 10px;
+  font-size: 0.8rem;
+}
+
 .month-label {
   min-width: 150px;
   text-align: center;
@@ -783,10 +789,6 @@ button.calendar-cell {
   box-shadow: none;
 }
 
-.calendar-cell.is-today {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 1px;
-}
 
 .calendar-cell.is-active {
   border-color: var(--accent-primary);
