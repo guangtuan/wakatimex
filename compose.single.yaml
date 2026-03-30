@@ -2,7 +2,9 @@
 #
 # 使用前提：
 #   1. 宿主机 MySQL 已创建数据库，并执行过 ddl/init.sql 完成建表。
-#   2. 复制 .env.example 为 .env 并按实际情况修改 MYSQL_DSN 等配置。
+#   2. 复制 .env.example 为 .env，按实际情况修改配置（尤其是 MYSQL_DSN）。
+#      host.docker.internal 由 extra_hosts 注入，指向宿主机 127.0.0.1。
+#      示例：MYSQL_DSN=mysql://root:yourpassword@host.docker.internal:3306/wakatime_sync
 #
 # 启动命令：
 #   docker compose -f compose.single.yaml up --build -d
@@ -19,14 +21,15 @@ services:
       - "9506:9506"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    env_file:
+      - path: .env
+        required: false
     environment:
-      APP_ENV: dev
-      APP_PORT: 9506
-      APP_TIMEZONE: Asia/Shanghai
-      # 将 <password> 和 <dbname> 替换为实际值；
-      # host.docker.internal 指向宿主机，由 extra_hosts 注入。
-      MYSQL_DSN: mysql://root:<password>@host.docker.internal:3306/<dbname>
-      WAKATIME_API_BASE: https://api.wakatime.com/api/v1
+      APP_ENV: ${APP_ENV:-dev}
+      APP_PORT: ${APP_PORT:-9506}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Shanghai}
+      MYSQL_DSN: ${MYSQL_DSN}
+      WAKATIME_API_BASE: ${WAKATIME_API_BASE:-https://api.wakatime.com/api/v1}
     volumes:
       - ${HOME}/.wakatime.cfg:/root/.wakatime.cfg:ro
     command:
