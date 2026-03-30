@@ -1,0 +1,40 @@
+# 单服务模式：仅启动 app，MySQL 使用宿主机已有实例。
+#
+# 使用前提：
+#   1. 宿主机 MySQL 已创建数据库，并执行过 ddl/init.sql 完成建表。
+#   2. 复制 .env.example 为 .env 并按实际情况修改 MYSQL_DSN 等配置。
+#
+# 启动命令：
+#   docker compose -f compose.single.yaml up --build -d
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: "0.0.0-dev"
+    container_name: wakatime-sync-dev
+    ports:
+      - "9506:9506"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      APP_ENV: dev
+      APP_PORT: 9506
+      APP_TIMEZONE: Asia/Shanghai
+      # 将 <password> 和 <dbname> 替换为实际值；
+      # host.docker.internal 指向宿主机，由 extra_hosts 注入。
+      MYSQL_DSN: mysql://root:<password>@host.docker.internal:3306/<dbname>
+      WAKATIME_API_BASE: https://api.wakatime.com/api/v1
+    volumes:
+      - ${HOME}/.wakatime.cfg:/root/.wakatime.cfg:ro
+    command:
+      [
+        "uvicorn",
+        "wakatime_sync.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "9506"
+      ]
