@@ -82,11 +82,8 @@ def build_api_router() -> APIRouter:
         best_day = max(daily.items(), key=lambda x: x[1]["active_minutes"])[0] if daily else None
 
         return StatsDailyResponse(
-            start=window.start.isoformat(),
-            end=window.end.isoformat(),
             total_heartbeats=total_heartbeats,
             total_active_minutes=total_active_minutes,
-            total_active_seconds=total_active_minutes * 60,
             best_day=best_day,
             days=day_items,
         )
