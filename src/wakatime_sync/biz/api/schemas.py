@@ -31,19 +31,11 @@ class DailyStatItem(BaseModel):
     date: str
     heartbeats: int
     active_minutes: int
-    active_seconds: int
-    ai_insert: int = 0
-    ai_delete: int = 0
-    human_insert: int = 0
-    human_delete: int = 0
 
 
 class StatsDailyResponse(BaseModel):
-    start: str
-    end: str
     total_heartbeats: int
     total_active_minutes: int
-    total_active_seconds: int
     best_day: str | None
     days: list[DailyStatItem]
 
