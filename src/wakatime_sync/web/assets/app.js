@@ -1091,15 +1091,12 @@ async function loadStats() {
     await ensureLanguageColorsLoaded();
 
     const { start, end } = monthRange(currentMonth);
-    const todayIso = toIsoDate(appToday());
     const monthText = monthLabel(currentMonth);
 
-    const [todayDaily, daily] = await Promise.all([
-      fetchJson(`/api/stats/daily?start=${todayIso}&end=${todayIso}`),
-      fetchJson(`/api/stats/daily?start=${start}&end=${end}`),
-    ]);
+    const daily = await fetchJson(`/api/stats/daily?start=${start}&end=${end}`);
+    const todayIso = toIsoDate(appToday());
+    const today = (daily.days || []).find((day) => day.date === todayIso) || null;
 
-    const today = todayDaily.days[0] || null;
     if (todayActiveEl) {
       todayActiveEl.textContent = today ? fmtMinutes(today.active_minutes) : '0m';
     }
