@@ -529,6 +529,11 @@ function monthRange(date) {
   };
 }
 
+function isIsoDateInRange(dateString, startIso, endIso) {
+  const dateTime = fromIsoDate(dateString).getTime();
+  return dateTime >= fromIsoDate(startIso).getTime() && dateTime <= fromIsoDate(endIso).getTime();
+}
+
 function syncRangeDefaults() {
   const today = appToday();
   const start = new Date(today);
@@ -905,12 +910,12 @@ function renderCalendarSkeleton(month) {
 
 function resolveSelectedCalendarDate(daily) {
   const { start, end } = monthRange(currentMonth);
-  if (currentSelectedDate && currentSelectedDate >= start && currentSelectedDate <= end) {
+  if (currentSelectedDate && isIsoDateInRange(currentSelectedDate, start, end)) {
     return currentSelectedDate;
   }
 
   const todayIso = toIsoDate(appToday());
-  if (todayIso >= start && todayIso <= end) {
+  if (isIsoDateInRange(todayIso, start, end)) {
     return todayIso;
   }
 
@@ -1091,11 +1096,19 @@ async function loadStats() {
     await ensureLanguageColorsLoaded();
 
     const { start, end } = monthRange(currentMonth);
-    const monthText = monthLabel(currentMonth);
-
-    const daily = await fetchJson(`/api/stats/daily?start=${start}&end=${end}`);
     const todayIso = toIsoDate(appToday());
-    const today = (daily.days || []).find((day) => day.date === todayIso) || null;
+    const monthText = monthLabel(currentMonth);
+    const needsTodayRequest = !isIsoDateInRange(todayIso, start, end);
+
+    const [daily, todayDaily] = await Promise.all([
+      fetchJson(`/api/stats/daily?start=${start}&end=${end}`),
+      needsTodayRequest ? fetchJson(`/api/stats/daily?start=${todayIso}&end=${todayIso}`) : null,
+    ]);
+    const daysByDate = new Map((daily.days || []).map((day) => [day.date, day]));
+
+    const today = needsTodayRequest
+      ? (todayDaily?.days?.[0] || null)
+      : (daysByDate.get(todayIso) || null);
 
     if (todayActiveEl) {
       todayActiveEl.textContent = today ? fmtMinutes(today.active_minutes) : '0m';
