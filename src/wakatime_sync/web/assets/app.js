@@ -1094,13 +1094,9 @@ async function loadStats() {
     const todayIso = toIsoDate(appToday());
     const monthText = monthLabel(currentMonth);
 
-    const [todayDaily, daily, langs, projects, editors, aiStats] = await Promise.all([
+    const [todayDaily, daily] = await Promise.all([
       fetchJson(`/api/stats/daily?start=${todayIso}&end=${todayIso}`),
       fetchJson(`/api/stats/daily?start=${start}&end=${end}`),
-      fetchJson(`/api/stats/breakdown?by=language&limit=10&start=${start}&end=${end}`),
-      fetchJson(`/api/stats/breakdown?by=project&limit=10&start=${start}&end=${end}`),
-      fetchJson(`/api/stats/breakdown?by=editor&limit=5&start=${start}&end=${end}`),
-      fetchJson(`/api/stats/ai?start=${start}&end=${end}`),
     ]);
 
     const today = todayDaily.days[0] || null;
@@ -1120,42 +1116,6 @@ async function loadStats() {
     if (totalHeartbeatsEl) {
       totalHeartbeatsEl.textContent = fmtNumber(daily.total_heartbeats);
     }
-    const aiInsertEl = document.getElementById('ai-insert');
-    const aiDeleteEl = document.getElementById('ai-delete');
-    const humanInsertEl = document.getElementById('human-insert');
-    const humanDeleteEl = document.getElementById('human-delete');
-    if (aiInsertEl) {
-      aiInsertEl.textContent = fmtNumber(aiStats.ai_line_changes);
-    }
-    if (aiDeleteEl) {
-      aiDeleteEl.textContent = `${(aiStats.ai_percentage || 0).toFixed(1)}%`;
-    }
-    if (humanInsertEl) {
-      humanInsertEl.textContent = fmtNumber(aiStats.human_line_changes);
-    }
-    if (humanDeleteEl) {
-      humanDeleteEl.textContent = fmtNumber(aiStats.total_changes || 0);
-    }
-
-    const aiPercent = aiStats.ai_percentage || 0;
-    const humanPercent = 100 - aiPercent;
-    const aiBarEl = document.getElementById('ai-bar');
-    const humanBarEl = document.getElementById('human-bar');
-    const aiPercentEl = document.getElementById('ai-percent');
-    const humanPercentEl = document.getElementById('human-percent');
-    if (aiBarEl) {
-      aiBarEl.style.width = `${aiPercent}%`;
-    }
-    if (humanBarEl) {
-      humanBarEl.style.width = `${humanPercent}%`;
-    }
-    if (aiPercentEl) {
-      aiPercentEl.textContent = `${aiPercent.toFixed(1)}%`;
-    }
-    if (humanPercentEl) {
-      humanPercentEl.textContent = `${humanPercent.toFixed(1)}%`;
-    }
-
     renderDailyCalendar(daily);
     if (dailyCalendarGridEl && calendarSidePanelEl) {
       const selectedDate = resolveSelectedCalendarDate(daily);
@@ -1168,14 +1128,60 @@ async function loadStats() {
     } else if (calendarMonthLabelEl) {
       calendarMonthLabelEl.textContent = monthText;
     }
-    initPieChart('languageChart', langs.items || [], 'language', 0);
-    initPieChart('projectChart', projects.items || [], 'project', 2);
-    renderLegend('language-legend', langs.items || [], 'language', 0);
-    renderLegend('project-legend', projects.items || [], 'project', 2);
 
-    renderDetailList(topLanguagesEl, langs.items || [], 'language', 0);
-    renderDetailList(topProjectsEl, projects.items || [], 'project', 2);
-    renderDetailList(topEditorsEl, editors.items || [], 'editor', 4);
+    if (pageType === 'charts') {
+      const [langs, projects, editors, aiStats] = await Promise.all([
+        fetchJson(`/api/stats/breakdown?by=language&limit=10&start=${start}&end=${end}`),
+        fetchJson(`/api/stats/breakdown?by=project&limit=10&start=${start}&end=${end}`),
+        fetchJson(`/api/stats/breakdown?by=editor&limit=5&start=${start}&end=${end}`),
+        fetchJson(`/api/stats/ai?start=${start}&end=${end}`),
+      ]);
+
+      const aiInsertEl = document.getElementById('ai-insert');
+      const aiDeleteEl = document.getElementById('ai-delete');
+      const humanInsertEl = document.getElementById('human-insert');
+      const humanDeleteEl = document.getElementById('human-delete');
+      if (aiInsertEl) {
+        aiInsertEl.textContent = fmtNumber(aiStats.ai_line_changes);
+      }
+      if (aiDeleteEl) {
+        aiDeleteEl.textContent = `${(aiStats.ai_percentage || 0).toFixed(1)}%`;
+      }
+      if (humanInsertEl) {
+        humanInsertEl.textContent = fmtNumber(aiStats.human_line_changes);
+      }
+      if (humanDeleteEl) {
+        humanDeleteEl.textContent = fmtNumber(aiStats.total_changes || 0);
+      }
+
+      const aiPercent = aiStats.ai_percentage || 0;
+      const humanPercent = 100 - aiPercent;
+      const aiBarEl = document.getElementById('ai-bar');
+      const humanBarEl = document.getElementById('human-bar');
+      const aiPercentEl = document.getElementById('ai-percent');
+      const humanPercentEl = document.getElementById('human-percent');
+      if (aiBarEl) {
+        aiBarEl.style.width = `${aiPercent}%`;
+      }
+      if (humanBarEl) {
+        humanBarEl.style.width = `${humanPercent}%`;
+      }
+      if (aiPercentEl) {
+        aiPercentEl.textContent = `${aiPercent.toFixed(1)}%`;
+      }
+      if (humanPercentEl) {
+        humanPercentEl.textContent = `${humanPercent.toFixed(1)}%`;
+      }
+
+      initPieChart('languageChart', langs.items || [], 'language', 0);
+      initPieChart('projectChart', projects.items || [], 'project', 2);
+      renderLegend('language-legend', langs.items || [], 'language', 0);
+      renderLegend('project-legend', projects.items || [], 'project', 2);
+
+      renderDetailList(topLanguagesEl, langs.items || [], 'language', 0);
+      renderDetailList(topProjectsEl, projects.items || [], 'project', 2);
+      renderDetailList(topEditorsEl, editors.items || [], 'editor', 4);
+    }
   } catch (err) {
     console.error('Failed to load stats:', err);
   }
