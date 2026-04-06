@@ -101,6 +101,16 @@ const I18N = {
       charts_title: 'Monthly charts and rankings',
       charts_description: 'Open language, project, AI, and ranking panels on a dedicated page.',
     },
+    mobile: {
+      sync: {
+        title: 'Sync Range',
+      },
+      summary: {
+        active: 'Active',
+        best_day: 'Best Day',
+        heartbeats: 'Heartbeats',
+      },
+    },
     hero: {
       title: 'Activity Overview',
     },
@@ -217,6 +227,16 @@ const I18N = {
       charts: '图表',
       charts_title: '月度图表与排行',
       charts_description: '把语言、项目、AI 和排行面板放到独立页面查看。',
+    },
+    mobile: {
+      sync: {
+        title: '同步范围',
+      },
+      summary: {
+        active: '活跃时长',
+        best_day: '最佳日期',
+        heartbeats: '心跳总数',
+      },
     },
     hero: {
       title: '活动概览',

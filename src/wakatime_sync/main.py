@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from importlib import resources
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from loguru import logger
 
@@ -61,9 +61,28 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 
+MOBILE_USER_AGENT_KEYWORDS = (
+    "android",
+    "iphone",
+    "ipod",
+    "ipad",
+    "mobile",
+    "windows phone",
+)
+
+
+def _is_mobile_user_agent(user_agent: str | None) -> bool:
+    if not user_agent:
+        return False
+    normalized = user_agent.lower()
+    return any(keyword in normalized for keyword in MOBILE_USER_AGENT_KEYWORDS)
+
+
 @app.get("/")
-async def root() -> RedirectResponse:
-    return RedirectResponse(url="/index.html", status_code=307)
+async def root(request: Request) -> RedirectResponse:
+    user_agent = request.headers.get("user-agent")
+    target = "/index-mobile.html" if _is_mobile_user_agent(user_agent) else "/index.html"
+    return RedirectResponse(url=target, status_code=307)
 
 
 @app.get("/{page_name}.html", response_class=HTMLResponse)
