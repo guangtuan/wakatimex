@@ -40,6 +40,8 @@ let projectChart = null;
 let currentMonth = new Date();
 let currentSelectedDate = null;
 let previewRequestToken = 0;
+let cachedCurrentDays = [];
+let cachedPrevMonthDays = [];
 
 const dailyBreakdownCache = new Map();
 const LANGUAGE_STORAGE_KEY = 'wakatime-sync.lang';
@@ -964,6 +966,7 @@ async function selectCalendarDay(dateString, minutes, heartbeats) {
   }
 
   const shouldFetch = renderSelectedDayLoading(dateString, minutes, heartbeats);
+  renderPrevMonthCard(dateString);
   if (!shouldFetch) {
     return;
   }
@@ -1121,12 +1124,24 @@ function initPieChart(canvasId, items, scope = 'generic', colorOffset = 0) {
   }
 }
 
-function renderPrevMonthCard(currentMinutes, prevMonthDaily) {
-  if (!prevMonthCardEl || !prevMonthHoursEl) {
+function sumMinutesUpToDay(days, dayNum) {
+  let total = 0;
+  for (const d of days) {
+    if (fromIsoDate(d.date).getDate() <= dayNum) {
+      total += d.active_minutes || 0;
+    }
+  }
+  return total;
+}
+
+function renderPrevMonthCard(selectedDateString) {
+  if (!prevMonthCardEl || !prevMonthHoursEl || !selectedDateString) {
     return;
   }
 
-  const prevMinutes = prevMonthDaily?.total_active_minutes || 0;
+  const selectedDay = fromIsoDate(selectedDateString).getDate();
+  const currentMinutes = sumMinutesUpToDay(cachedCurrentDays, selectedDay);
+  const prevMinutes = sumMinutesUpToDay(cachedPrevMonthDays, selectedDay);
   if (prevMinutes <= 0) {
     prevMonthCardEl.style.display = 'none';
     return;
@@ -1169,6 +1184,8 @@ async function loadStats() {
       prevMonthCardEl ? fetchJson(`/api/stats/daily?start=${prevStart}&end=${prevEnd}`) : null,
     ]);
     const daysByDate = new Map((daily.days || []).map((day) => [day.date, day]));
+    cachedCurrentDays = daily.days || [];
+    cachedPrevMonthDays = prevMonthDaily?.days || [];
 
     const today = needsTodayRequest
       ? (todayDaily?.days?.[0] || null)
@@ -1190,7 +1207,6 @@ async function loadStats() {
     if (totalHeartbeatsEl) {
       totalHeartbeatsEl.textContent = fmtNumber(daily.total_heartbeats);
     }
-    renderPrevMonthCard(daily.total_active_minutes, prevMonthDaily);
     renderDailyCalendar(daily);
     if (dailyCalendarGridEl && calendarSidePanelEl) {
       const selectedDate = resolveSelectedCalendarDate(daily);
@@ -1200,8 +1216,11 @@ async function loadStats() {
         selectedDay?.active_minutes || 0,
         selectedDay?.heartbeats || 0,
       );
-    } else if (calendarMonthLabelEl) {
-      calendarMonthLabelEl.textContent = monthText;
+    } else {
+      renderPrevMonthCard(toIsoDate(end <= todayIso ? monthEnd(currentMonth) : appToday()));
+      if (calendarMonthLabelEl) {
+        calendarMonthLabelEl.textContent = monthText;
+      }
     }
 
     if (pageType === 'charts') {
