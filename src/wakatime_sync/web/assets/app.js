@@ -26,6 +26,9 @@ const calendarHourlyPanelEl = document.getElementById('calendar-hourly-panel');
 const calendarHourlyTitleEl = document.getElementById('calendar-hourly-title');
 const calendarHourlySummaryEl = document.getElementById('calendar-hourly-summary');
 const calendarHourlyListEl = document.getElementById('calendar-hourly-list');
+const prevMonthCardEl = document.getElementById('prev-month-card');
+const prevMonthHoursEl = document.getElementById('prev-month-hours');
+const prevMonthDeltaEl = document.getElementById('prev-month-delta');
 const langSwitchEl = document.getElementById('lang-switch');
 const langEnBtn = document.getElementById('lang-en-btn');
 const langZhBtn = document.getElementById('lang-zh-btn');
@@ -107,6 +110,10 @@ const I18N = {
       best_prefix: 'Best:',
       total_heartbeats: 'Total Heartbeats',
       this_month: 'This month',
+      prev_month: 'Last month',
+      prev_month_delta_up: '↑{delta} vs last',
+      prev_month_delta_down: '↓{delta} vs last',
+      prev_month_delta_same: 'Same as last',
     },
     common: {
       heartbeats: 'heartbeats',
@@ -220,6 +227,10 @@ const I18N = {
       best_prefix: '最佳：',
       total_heartbeats: '总心跳数',
       this_month: '本月',
+      prev_month: '上月',
+      prev_month_delta_up: '↑{delta} 较上月',
+      prev_month_delta_down: '↓{delta} 较上月',
+      prev_month_delta_same: '与上月持平',
     },
     common: {
       heartbeats: '心跳',
@@ -1090,19 +1101,52 @@ function initPieChart(canvasId, items, scope = 'generic', colorOffset = 0) {
   }
 }
 
+function renderPrevMonthCard(currentMinutes, prevMonthDaily) {
+  if (!prevMonthCardEl || !prevMonthHoursEl) {
+    return;
+  }
+
+  const prevMinutes = prevMonthDaily?.total_active_minutes || 0;
+  if (prevMinutes <= 0) {
+    prevMonthCardEl.style.display = 'none';
+    return;
+  }
+
+  prevMonthCardEl.style.display = '';
+  prevMonthHoursEl.textContent = fmtMinutes(prevMinutes);
+  prevMonthCardEl.title = t('summary.prev_month');
+
+  if (prevMonthDeltaEl) {
+    const diff = currentMinutes - prevMinutes;
+    if (diff > 0) {
+      prevMonthDeltaEl.textContent = t('summary.prev_month_delta_up', { delta: fmtMinutes(diff) });
+      prevMonthDeltaEl.className = 'stat-detail stat-delta delta-up';
+    } else if (diff < 0) {
+      prevMonthDeltaEl.textContent = t('summary.prev_month_delta_down', { delta: fmtMinutes(Math.abs(diff)) });
+      prevMonthDeltaEl.className = 'stat-detail stat-delta delta-down';
+    } else {
+      prevMonthDeltaEl.textContent = t('summary.prev_month_delta_same');
+      prevMonthDeltaEl.className = 'stat-detail stat-delta delta-same';
+    }
+  }
+}
+
 async function loadStats() {
   try {
     renderCalendarSkeleton(currentMonth);
     await ensureLanguageColorsLoaded();
 
     const { start, end } = monthRange(currentMonth);
+    const prevMonth = shiftMonth(currentMonth, -1);
+    const { start: prevStart, end: prevEnd } = monthRange(prevMonth);
     const todayIso = toIsoDate(appToday());
     const monthText = monthLabel(currentMonth);
     const needsTodayRequest = !isIsoDateInRange(todayIso, start, end);
 
-    const [daily, todayDaily] = await Promise.all([
+    const [daily, todayDaily, prevMonthDaily] = await Promise.all([
       fetchJson(`/api/stats/daily?start=${start}&end=${end}`),
       needsTodayRequest ? fetchJson(`/api/stats/daily?start=${todayIso}&end=${todayIso}`) : null,
+      prevMonthCardEl ? fetchJson(`/api/stats/daily?start=${prevStart}&end=${prevEnd}`) : null,
     ]);
     const daysByDate = new Map((daily.days || []).map((day) => [day.date, day]));
 
@@ -1126,6 +1170,7 @@ async function loadStats() {
     if (totalHeartbeatsEl) {
       totalHeartbeatsEl.textContent = fmtNumber(daily.total_heartbeats);
     }
+    renderPrevMonthCard(daily.total_active_minutes, prevMonthDaily);
     renderDailyCalendar(daily);
     if (dailyCalendarGridEl && calendarSidePanelEl) {
       const selectedDate = resolveSelectedCalendarDate(daily);
