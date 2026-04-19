@@ -61,73 +61,20 @@
       <main class="dashboard">
         <section class="charts-section">
           <div class="chart-container large">
-            <div class="chart-header calendar-header">
-              <div class="calendar-header-title" data-i18n="calendar.title">Monthly Coding Calendar</div>
-              <div class="chart-actions month-nav">
-                <button id="prev-month-btn" class="month-nav-btn" type="button" aria-label="Previous month">←</button>
-                <span id="calendar-month-label" class="month-label">Current Month</span>
-                <button id="next-month-btn" class="month-nav-btn" type="button" aria-label="Next month">→</button>
-                <button id="today-btn" class="month-nav-btn today-btn" type="button" data-i18n="calendar.today">Today</button>
-              </div>
-              <div class="calendar-header-overview-group">
-                <div class="stats-overview calendar-stats-overview">
-                  <div class="stat-card compact">
-                    <div class="stat-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                        <line x1="16" y1="2" x2="16" y2="6"/>
-                        <line x1="8" y1="2" x2="8" y2="6"/>
-                        <line x1="3" y1="10" x2="21" y2="10"/>
-                      </svg>
-                    </div>
-                    <div class="stat-content">
-                      <span class="stat-value" id="week-active">-</span>
-                    </div>
-                  </div>
-                  <div class="stat-card compact stat-card-inline-detail">
-                    <div class="stat-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M8 21h8"/>
-                        <path d="M12 17v4"/>
-                        <path d="M7 4h10v3a5 5 0 0 1-10 0V4z"/>
-                        <path d="M7 6H5a2 2 0 0 0 2 2"/>
-                        <path d="M17 6h2a2 2 0 0 1-2 2"/>
-                      </svg>
-                    </div>
-                    <div class="stat-content">
-                      <span class="stat-value" id="best-day">-</span>
-                    </div>
-                  </div>
-                  <div class="stat-card compact">
-                    <div class="stat-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 20V10"/>
-                        <path d="M18 20V4"/>
-                        <path d="M6 20v-4"/>
-                      </svg>
-                    </div>
-                    <div class="stat-content">
-                      <span class="stat-value" id="total-heartbeats">-</span>
-                    </div>
-                  </div>
-                  <div class="stat-card compact stat-card-prev-month" id="prev-month-card" style="display:none">
-                    <div class="stat-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
-                        <polyline points="17 6 23 6 23 12"/>
-                      </svg>
-                    </div>
-                    <div class="stat-content">
-                      <span class="stat-value" id="prev-month-hours">-</span>
-                      <span class="stat-detail stat-delta" id="prev-month-delta"></span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
             <div id="calendar-chart-body" class="chart-body calendar-chart-body">
               <div class="calendar-layout">
                 <div class="calendar-main">
+                  <div class="calendar-left-top">
+                    <div class="calendar-header-title" data-i18n="calendar.title">Monthly Coding Calendar</div>
+                    <div class="calendar-nav-row">
+                      <div class="month-nav">
+                        <button id="prev-month-btn" class="month-nav-btn" type="button" aria-label="Previous month">←</button>
+                        <span id="calendar-month-label" class="month-label">Current Month</span>
+                        <button id="next-month-btn" class="month-nav-btn" type="button" aria-label="Next month">→</button>
+                      </div>
+                      <button id="today-btn" class="month-nav-btn today-btn" type="button" data-i18n="calendar.today">Today</button>
+                    </div>
+                  </div>
                   <div class="calendar-weekdays" aria-hidden="true">
                     <span data-i18n="weekday.mon">Mon</span>
                     <span data-i18n="weekday.tue">Tue</span>
@@ -148,33 +95,90 @@
                     <span class="calendar-legend-label" data-i18n="calendar.more">More</span>
                   </div>
                 </div>
-                <div class="calendar-side-panels">
-                  <aside id="calendar-side-panel" class="calendar-side-panel is-empty">
-                    <div class="calendar-hover-header">
-                      <div>
-                        <div class="calendar-hover-eyebrow" data-i18n="calendar.selected_day">Selected Day</div>
-                        <h3 id="calendar-hover-title" data-i18n="calendar.select_day">Select a day</h3>
+                <div class="calendar-right">
+                  <div class="calendar-header-overview-group">
+                    <div class="stats-overview calendar-stats-overview">
+                      <div class="stat-card compact">
+                        <div class="stat-icon">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                          </svg>
+                        </div>
+                        <div class="stat-content">
+                          <span class="stat-value" id="week-active">-</span>
+                        </div>
                       </div>
-                      <div id="calendar-hover-summary" class="calendar-hover-summary" data-i18n="calendar.click_date">Click a date to view breakdowns</div>
+                      <div class="stat-card compact stat-card-inline-detail">
+                        <div class="stat-icon">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M8 21h8"/>
+                            <path d="M12 17v4"/>
+                            <path d="M7 4h10v3a5 5 0 0 1-10 0V4z"/>
+                            <path d="M7 6H5a2 2 0 0 0 2 2"/>
+                            <path d="M17 6h2a2 2 0 0 1-2 2"/>
+                          </svg>
+                        </div>
+                        <div class="stat-content">
+                          <span class="stat-value" id="best-day">-</span>
+                        </div>
+                      </div>
+                      <div class="stat-card compact">
+                        <div class="stat-icon">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 20V10"/>
+                            <path d="M18 20V4"/>
+                            <path d="M6 20v-4"/>
+                          </svg>
+                        </div>
+                        <div class="stat-content">
+                          <span class="stat-value" id="total-heartbeats">-</span>
+                        </div>
+                      </div>
+                      <div class="stat-card compact stat-card-prev-month" id="prev-month-card" style="display:none">
+                        <div class="stat-icon">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                            <polyline points="17 6 23 6 23 12"/>
+                          </svg>
+                        </div>
+                        <div class="stat-content">
+                          <span class="stat-value" id="prev-month-hours">-</span>
+                          <span class="stat-detail stat-delta" id="prev-month-delta"></span>
+                        </div>
+                      </div>
                     </div>
-                    <div class="calendar-hover-grid">
-                      <section class="calendar-hover-section">
-                        <h4 data-i18n="sections.languages">Languages</h4>
-                        <div id="calendar-hover-languages" class="calendar-hover-list"></div>
-                      </section>
-                      <section class="calendar-hover-section">
-                        <h4 data-i18n="sections.projects">Projects</h4>
-                        <div id="calendar-hover-projects" class="calendar-hover-list"></div>
-                      </section>
-                    </div>
-                  </aside>
-                  <aside id="calendar-hourly-panel" class="calendar-side-panel calendar-hourly-panel is-empty">
-                    <div class="calendar-hourly-header">
-                      <div class="calendar-hover-eyebrow" data-i18n="calendar.hourly_distribution">24h Distribution</div>
-                      <div id="calendar-hourly-summary" class="calendar-hover-summary calendar-hourly-summary" data-i18n="calendar.hourly_click_date">Click a date to view hourly activity</div>
-                    </div>
-                    <div id="calendar-hourly-list" class="calendar-hourly-list"></div>
-                  </aside>
+                  </div>
+                  <div class="calendar-side-panels">
+                    <aside id="calendar-side-panel" class="calendar-side-panel is-empty">
+                      <div class="calendar-hover-header">
+                        <div>
+                          <div class="calendar-hover-eyebrow" data-i18n="calendar.selected_day">Selected Day</div>
+                          <h3 id="calendar-hover-title" data-i18n="calendar.select_day">Select a day</h3>
+                        </div>
+                        <div id="calendar-hover-summary" class="calendar-hover-summary" data-i18n="calendar.click_date">Click a date to view breakdowns</div>
+                      </div>
+                      <div class="calendar-hover-grid">
+                        <section class="calendar-hover-section">
+                          <h4 data-i18n="sections.languages">Languages</h4>
+                          <div id="calendar-hover-languages" class="calendar-hover-list"></div>
+                        </section>
+                        <section class="calendar-hover-section">
+                          <h4 data-i18n="sections.projects">Projects</h4>
+                          <div id="calendar-hover-projects" class="calendar-hover-list"></div>
+                        </section>
+                      </div>
+                    </aside>
+                    <aside id="calendar-hourly-panel" class="calendar-side-panel calendar-hourly-panel is-empty">
+                      <div class="calendar-hourly-header">
+                        <div class="calendar-hover-eyebrow" data-i18n="calendar.hourly_distribution">24h Distribution</div>
+                        <div id="calendar-hourly-summary" class="calendar-hover-summary calendar-hourly-summary" data-i18n="calendar.hourly_click_date">Click a date to view hourly activity</div>
+                      </div>
+                      <div id="calendar-hourly-list" class="calendar-hourly-list"></div>
+                    </aside>
+                  </div>
                 </div>
               </div>
             </div>

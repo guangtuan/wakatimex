@@ -605,19 +605,7 @@ body[data-page="home"] .chart-container.large {
   background: var(--bg-tertiary);
 }
 
-.calendar-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-}
-
-.calendar-header-overview-group {
-  min-width: 0;
-}
-
 .calendar-header-title {
-  justify-self: start;
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: -0.03em;
@@ -625,17 +613,41 @@ body[data-page="home"] .chart-container.large {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  margin-bottom: 6px;
+}
+
+.calendar-left-top {
+  margin-bottom: 8px;
+}
+
+.calendar-nav-row {
+  display: flex;
+  align-items: center;
+  position: relative;
+  justify-content: center;
+}
+
+.calendar-nav-row .month-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.calendar-nav-row .today-btn {
+  position: absolute;
+  right: 0;
 }
 
 .calendar-stats-overview {
   display: flex;
   gap: 8px;
   min-width: 0;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  flex-wrap: wrap;
 }
 
 .calendar-stats-overview .stat-card {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -643,8 +655,15 @@ body[data-page="home"] .chart-container.large {
   display: flex;
   align-items: center;
   min-width: 0;
-  justify-content: flex-end;
-  justify-self: end;
+  width: 100%;
+}
+
+.calendar-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
 }
 
 .chart-header h2 {
@@ -659,6 +678,7 @@ body[data-page="home"] .chart-container.large {
 }
 
 .month-nav {
+  display: flex;
   flex: 0 0 auto;
   align-items: center;
   gap: 12px;
@@ -1788,7 +1808,8 @@ body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .calendar-main {
@@ -2097,44 +2118,20 @@ button.calendar-cell {
     flex: 1 1 132px;
   }
 
-  .calendar-header {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-    gap: 12px;
-  }
-
-  .calendar-header-overview-group {
-    width: 100%;
-  }
-
-  .calendar-header-overview-group {
-    justify-content: flex-start;
-    justify-self: stretch;
-  }
-  
-  .actions-section {
-    grid-template-columns: 1fr;
-  }
-  
-  .chart-actions {
-    flex-wrap: wrap;
+  .calendar-nav-row .today-btn {
+    position: static;
+    margin-left: auto;
   }
 
   .month-nav {
-    width: 100%;
+    width: auto;
     justify-content: flex-start;
     gap: 8px;
   }
 
   .month-label {
     min-width: 0;
-    flex: 1 1 100%;
-    order: -1;
-    text-align: left;
-  }
-
-  .today-btn {
-    margin-left: auto;
+    text-align: center;
   }
 
   .calendar-weekdays span {
