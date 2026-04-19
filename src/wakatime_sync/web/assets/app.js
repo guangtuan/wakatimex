@@ -1217,7 +1217,8 @@ async function loadStats() {
         selectedDay?.heartbeats || 0,
       );
     } else {
-      renderPrevMonthCard(toIsoDate(end <= todayIso ? monthEnd(currentMonth) : appToday()));
+      const effectiveEnd = end <= todayIso ? monthEnd(currentMonth) : appToday();
+      renderPrevMonthCard(toIsoDate(effectiveEnd));
       if (calendarMonthLabelEl) {
         calendarMonthLabelEl.textContent = monthText;
       }
