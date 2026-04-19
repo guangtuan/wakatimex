@@ -1,7 +1,7 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: wakatime-sync-mysql
+    container_name: wakatimex-mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: 123456
@@ -20,7 +20,8 @@ services:
       dockerfile: Dockerfile
       args:
         VERSION: "0.0.0-dev"
-    container_name: wakatime-sync-dev
+    image: wakatimex
+    container_name: wakatimex-dev
     ports:
       - "9506:9506"
     environment:
