@@ -398,6 +398,33 @@ body[data-page="home"] .dashboard {
   font-family: 'JetBrains Mono', monospace;
 }
 
+.stat-card-prev-month .stat-content {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.stat-delta {
+  font-size: 0.68rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.stat-delta.delta-up {
+  color: var(--accent-green);
+}
+
+.stat-delta.delta-down {
+  color: var(--accent-orange);
+}
+
+.stat-delta.delta-same {
+  color: var(--text-muted);
+}
+
 .ai-stats-section {
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
