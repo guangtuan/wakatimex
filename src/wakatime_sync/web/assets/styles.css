@@ -613,18 +613,19 @@ body[data-page="home"] .chart-container.large {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  margin-bottom: 6px;
 }
 
 .calendar-left-top {
   margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .calendar-nav-row {
   display: flex;
   align-items: center;
-  position: relative;
-  justify-content: center;
+  gap: 12px;
 }
 
 .calendar-nav-row .month-nav {
@@ -633,16 +634,11 @@ body[data-page="home"] .chart-container.large {
   gap: 12px;
 }
 
-.calendar-nav-row .today-btn {
-  position: absolute;
-  right: 0;
-}
-
 .calendar-stats-overview {
   display: flex;
   gap: 8px;
   min-width: 0;
-  justify-content: flex-start;
+  justify-content: flex-end;
   flex-wrap: wrap;
 }
 
