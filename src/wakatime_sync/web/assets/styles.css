@@ -1939,7 +1939,7 @@ button.calendar-cell {
   top: 0;
   bottom: 0;
   display: block;
-  min-width: 1px;
+  min-width: 2px;
   border-radius: 999px;
 }
 
