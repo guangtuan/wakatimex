@@ -780,7 +780,7 @@ function formatHourlySegmentLabel(segment, hour, startSecond, endSecond) {
   return [
     displayName(segment.name),
     fmtDurationSeconds(segment.active_seconds || 0),
-    `${formatHourMinuteLabel(hour, startSecond)}-${formatHourMinuteLabel(hour, Math.max(startSecond, endSecond - 1))}`,
+    `${formatHourMinuteLabel(hour, startSecond)}-${formatHourMinuteLabel(hour, endSecond)}`,
   ].join(' · ');
 }
 
