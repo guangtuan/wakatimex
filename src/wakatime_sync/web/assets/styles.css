@@ -1927,6 +1927,22 @@ button.calendar-cell {
   background: linear-gradient(90deg, #9be9a8 0%, #2da44e 100%);
 }
 
+.calendar-hourly-fill.is-segmented {
+  display: flex;
+  overflow: hidden;
+  background: none;
+}
+
+.calendar-hourly-segment {
+  display: block;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.calendar-hourly-segment + .calendar-hourly-segment {
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.45);
+}
+
 .calendar-hover-header {
   margin-bottom: 10px;
 }

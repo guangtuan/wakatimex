@@ -425,6 +425,15 @@ function displayName(name) {
   return name || t('common.unknown');
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 function normalizeSeriesName(name) {
   return String(name || '')
     .trim()
@@ -489,6 +498,12 @@ function fmtMinutes(minutes) {
   if (h <= 0) return `${m}m`;
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
+}
+
+function fmtDurationSeconds(seconds) {
+  if (!seconds || seconds <= 0) return '0m';
+  if (seconds < 60) return `${seconds}s`;
+  return fmtMinutes(seconds / 60);
 }
 
 function fmtNumber(num) {
@@ -781,11 +796,30 @@ function renderHourlyDistribution(hours, emptyMessage) {
   const maxMinutes = Math.max(...activeHours.map((item) => item.active_minutes || 0), 0);
   calendarHourlyListEl.innerHTML = (hours || []).map((item) => {
     const pct = maxMinutes > 0 ? ((item.active_minutes || 0) / maxMinutes) * 100 : 0;
+    const totalSeconds = item.active_seconds || 0;
+    const segments = (item.segments || []).filter((segment) => (segment.active_seconds || 0) > 0);
+    const fillMarkup = segments.length
+      ? `
+        <div class="calendar-hourly-fill is-segmented" style="width: ${pct}%;">
+          ${segments.map((segment) => {
+            const segmentPct = totalSeconds > 0 ? ((segment.active_seconds || 0) / totalSeconds) * 100 : 0;
+            const segmentLabel = `${displayName(segment.name)} · ${fmtDurationSeconds(segment.active_seconds || 0)}`;
+            return `
+              <span
+                class="calendar-hourly-segment"
+                style="width: ${segmentPct}%; background: ${seriesColor(segment.name, 'editor')};"
+                title="${escapeHtml(segmentLabel)}"
+              ></span>
+            `;
+          }).join('')}
+        </div>
+      `
+      : `<div class="calendar-hourly-fill" style="width: ${pct}%;"></div>`;
     return `
       <div class="calendar-hourly-row">
         <div class="calendar-hourly-label">${formatHourLabel(item.hour)}</div>
         <div class="calendar-hourly-bar">
-          <div class="calendar-hourly-fill" style="width: ${pct}%;"></div>
+          ${fillMarkup}
         </div>
         <div class="calendar-hourly-meta">
           <span>${t('calendar.hourly_minutes', { minutes: fmtMinutes(item.active_minutes || 0) })}</span>
