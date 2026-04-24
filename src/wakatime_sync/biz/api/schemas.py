@@ -59,6 +59,8 @@ class HourlyEditorSegment(BaseModel):
     name: str
     active_minutes: int
     active_seconds: int
+    start_second: int
+    end_second: int
 
 
 class HourlyStatItem(BaseModel):

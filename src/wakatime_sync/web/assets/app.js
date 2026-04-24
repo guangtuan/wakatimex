@@ -765,6 +765,12 @@ function formatHourLabel(hour) {
   return `${String(hour).padStart(2, '0')}:00`;
 }
 
+function formatHourMinuteLabel(hour, secondOffset = 0) {
+  const safeOffset = Math.max(0, Math.min(3599, Math.floor(secondOffset)));
+  const minute = Math.floor(safeOffset / 60);
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
 function renderHourlySummary(totalMinutes, peakHour) {
   if (!calendarHourlySummaryEl) {
     return;
@@ -787,34 +793,38 @@ function renderHourlyDistribution(hours, emptyMessage) {
     return;
   }
 
-  const activeHours = (hours || []).filter((item) => (item.active_minutes || 0) > 0 || (item.heartbeats || 0) > 0);
+  const activeHours = (hours || []).filter((item) => (item.active_seconds || 0) > 0 || (item.heartbeats || 0) > 0);
   if (!activeHours.length) {
     calendarHourlyListEl.innerHTML = `<div class="calendar-hover-empty">${emptyMessage}</div>`;
     return;
   }
 
-  const maxMinutes = Math.max(...activeHours.map((item) => item.active_minutes || 0), 0);
   calendarHourlyListEl.innerHTML = (hours || []).map((item) => {
-    const pct = maxMinutes > 0 ? ((item.active_minutes || 0) / maxMinutes) * 100 : 0;
     const totalSeconds = item.active_seconds || 0;
-    const segments = (item.segments || []).filter((segment) => (segment.active_seconds || 0) > 0);
+    const segments = (item.segments || []).filter((segment) => (
+      (segment.active_seconds || 0) > 0
+      && Number.isFinite(segment.start_second)
+      && Number.isFinite(segment.end_second)
+      && (segment.end_second || 0) > (segment.start_second || 0)
+    ));
     const fillMarkup = segments.length
-      ? `
-        <div class="calendar-hourly-fill is-segmented" style="width: ${pct}%;">
-          ${segments.map((segment) => {
-            const segmentPct = totalSeconds > 0 ? ((segment.active_seconds || 0) / totalSeconds) * 100 : 0;
-            const segmentLabel = `${displayName(segment.name)} · ${fmtDurationSeconds(segment.active_seconds || 0)}`;
-            return `
-              <span
-                class="calendar-hourly-segment"
-                style="width: ${segmentPct}%; background: ${seriesColor(segment.name, 'editor')};"
-                title="${escapeHtml(segmentLabel)}"
-              ></span>
-            `;
-          }).join('')}
-        </div>
-      `
-      : `<div class="calendar-hourly-fill" style="width: ${pct}%;"></div>`;
+      ? segments.map((segment) => {
+        const startSecond = Math.max(0, Math.min(3600, segment.start_second || 0));
+        const endSecond = Math.max(startSecond, Math.min(3600, segment.end_second || 0));
+        const segmentLeft = (startSecond / 3600) * 100;
+        const segmentWidth = ((endSecond - startSecond) / 3600) * 100;
+        const segmentLabel = `${displayName(segment.name)} · ${fmtDurationSeconds(segment.active_seconds || 0)} · ${formatHourMinuteLabel(item.hour, startSecond)}-${formatHourMinuteLabel(item.hour, Math.max(startSecond, endSecond - 1))}`;
+        return `
+          <span
+            class="calendar-hourly-segment"
+            style="left: ${segmentLeft}%; width: ${segmentWidth}%; background: ${seriesColor(segment.name, 'editor')};"
+            title="${escapeHtml(segmentLabel)}"
+          ></span>
+        `;
+      }).join('')
+      : totalSeconds > 0
+        ? `<div class="calendar-hourly-fill" style="width: ${(totalSeconds / 3600) * 100}%;"></div>`
+        : '';
     return `
       <div class="calendar-hourly-row">
         <div class="calendar-hourly-label">${formatHourLabel(item.hour)}</div>
