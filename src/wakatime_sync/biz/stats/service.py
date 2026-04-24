@@ -169,7 +169,7 @@ class HourlyRow(TypedDict):
     heartbeats: int
     active_minutes: int
     active_seconds: int
-    segments: list["HourlySegment"]
+    segments: list[HourlySegment]
 
 
 class HourlySegment(TypedDict):
