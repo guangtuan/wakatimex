@@ -11,6 +11,7 @@ from wakatime_sync.sys.db import Heartbeat, UserAgent
 # WakaTime official timeout: if gap between two consecutive heartbeats
 # exceeds this value, the interval is NOT counted as coding time.
 HEARTBEAT_TIMEOUT_SECONDS: int = 15 * 60  # 15 minutes
+SECONDS_PER_HOUR: int = 60 * 60
 
 
 @dataclass
@@ -237,10 +238,13 @@ def summarize_hourly(
             hour_start = cursor.replace(minute=0, second=0, microsecond=0)
             next_hour = hour_start + timedelta(hours=1)
             chunk_end = min(end_dt, next_hour)
-            chunk_start_second = max(0, min(3600, round((cursor - hour_start).total_seconds())))
+            chunk_start_second = max(
+                0,
+                min(SECONDS_PER_HOUR, round((cursor - hour_start).total_seconds())),
+            )
             chunk_end_second = max(
                 chunk_start_second,
-                min(3600, round((chunk_end - hour_start).total_seconds())),
+                min(SECONDS_PER_HOUR, round((chunk_end - hour_start).total_seconds())),
             )
             chunk_seconds = chunk_end_second - chunk_start_second
             if chunk_seconds > 0:

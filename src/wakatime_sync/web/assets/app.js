@@ -34,6 +34,7 @@ const langEnBtn = document.getElementById('lang-en-btn');
 const langZhBtn = document.getElementById('lang-zh-btn');
 const pageType = document.body?.dataset.page || 'home';
 const APP_TIMEZONE = 'Asia/Shanghai';
+const SECONDS_PER_HOUR = 60 * 60;
 
 let languageChart = null;
 let projectChart = null;
@@ -766,9 +767,46 @@ function formatHourLabel(hour) {
 }
 
 function formatHourMinuteLabel(hour, secondOffset = 0) {
-  const safeOffset = Math.max(0, Math.min(3599, Math.floor(secondOffset)));
+  const safeOffset = clampHourlySecond(secondOffset, SECONDS_PER_HOUR - 1);
   const minute = Math.floor(safeOffset / 60);
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function clampHourlySecond(secondOffset, max = SECONDS_PER_HOUR) {
+  return Math.max(0, Math.min(max, Math.floor(secondOffset || 0)));
+}
+
+function formatHourlySegmentLabel(segment, hour, startSecond, endSecond) {
+  return [
+    displayName(segment.name),
+    fmtDurationSeconds(segment.active_seconds || 0),
+    `${formatHourMinuteLabel(hour, startSecond)}-${formatHourMinuteLabel(hour, Math.max(startSecond, endSecond - 1))}`,
+  ].join(' · ');
+}
+
+function renderHourlySegments(segments, hour) {
+  return segments.map((segment) => {
+    const startSecond = clampHourlySecond(segment.start_second);
+    const endSecond = clampHourlySecond(segment.end_second, SECONDS_PER_HOUR);
+    const segmentLeft = (startSecond / SECONDS_PER_HOUR) * 100;
+    const segmentWidth = ((endSecond - startSecond) / SECONDS_PER_HOUR) * 100;
+    const segmentLabel = formatHourlySegmentLabel(segment, hour, startSecond, endSecond);
+    return `
+      <span
+        class="calendar-hourly-segment"
+        style="left: ${segmentLeft}%; width: ${segmentWidth}%; background: ${seriesColor(segment.name, 'editor')};"
+        title="${escapeHtml(segmentLabel)}"
+      ></span>
+    `;
+  }).join('');
+}
+
+function renderHourlyFill(totalSeconds) {
+  if (totalSeconds <= 0) {
+    return '';
+  }
+
+  return `<div class="calendar-hourly-fill" style="width: ${(totalSeconds / SECONDS_PER_HOUR) * 100}%;"></div>`;
 }
 
 function renderHourlySummary(totalMinutes, peakHour) {
@@ -807,24 +845,7 @@ function renderHourlyDistribution(hours, emptyMessage) {
       && Number.isFinite(segment.end_second)
       && (segment.end_second || 0) > (segment.start_second || 0)
     ));
-    const fillMarkup = segments.length
-      ? segments.map((segment) => {
-        const startSecond = Math.max(0, Math.min(3600, segment.start_second || 0));
-        const endSecond = Math.max(startSecond, Math.min(3600, segment.end_second || 0));
-        const segmentLeft = (startSecond / 3600) * 100;
-        const segmentWidth = ((endSecond - startSecond) / 3600) * 100;
-        const segmentLabel = `${displayName(segment.name)} · ${fmtDurationSeconds(segment.active_seconds || 0)} · ${formatHourMinuteLabel(item.hour, startSecond)}-${formatHourMinuteLabel(item.hour, Math.max(startSecond, endSecond - 1))}`;
-        return `
-          <span
-            class="calendar-hourly-segment"
-            style="left: ${segmentLeft}%; width: ${segmentWidth}%; background: ${seriesColor(segment.name, 'editor')};"
-            title="${escapeHtml(segmentLabel)}"
-          ></span>
-        `;
-      }).join('')
-      : totalSeconds > 0
-        ? `<div class="calendar-hourly-fill" style="width: ${(totalSeconds / 3600) * 100}%;"></div>`
-        : '';
+    const fillMarkup = segments.length ? renderHourlySegments(segments, item.hour) : renderHourlyFill(totalSeconds);
     return `
       <div class="calendar-hourly-row">
         <div class="calendar-hourly-label">${formatHourLabel(item.hour)}</div>
