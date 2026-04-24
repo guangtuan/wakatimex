@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import TypedDict
 from zoneinfo import ZoneInfo
 
@@ -17,7 +17,7 @@ HEARTBEAT_TIMEOUT_SECONDS: int = 15 * 60  # 15 minutes
 class Window:
     start: date
     end: date
-    timezone: ZoneInfo = UTC
+    timezone: tzinfo = UTC
 
     @property
     def start_ts(self) -> float:
@@ -28,13 +28,13 @@ class Window:
         return datetime.combine(self.end + timedelta(days=1), time.min, self.timezone).timestamp()
 
 
-def resolve_timezone(name: str | None) -> ZoneInfo:
+def resolve_timezone(name: str | None) -> tzinfo:
     if not name:
         return UTC
     return ZoneInfo(name)
 
 
-def default_last_7_days(timezone: ZoneInfo = UTC) -> Window:
+def default_last_7_days(timezone: tzinfo = UTC) -> Window:
     end = datetime.now(timezone).date()
     start = end - timedelta(days=6)
     return Window(start=start, end=end, timezone=timezone)
@@ -66,7 +66,7 @@ async def load_user_agent_editors() -> dict[str, str]:
     }
 
 
-def to_day(ts: float, timezone: ZoneInfo = UTC) -> str:
+def to_day(ts: float, timezone: tzinfo = UTC) -> str:
     return datetime.fromtimestamp(ts, timezone).date().isoformat()
 
 
@@ -88,7 +88,7 @@ def heartbeats_to_seconds(timestamps: list[float], timeout: int = HEARTBEAT_TIME
     return round(total)
 
 
-def summarize_daily(rows: list[Heartbeat], timezone: ZoneInfo = UTC) -> dict[str, dict[str, int]]:
+def summarize_daily(rows: list[Heartbeat], timezone: tzinfo = UTC) -> dict[str, dict[str, int]]:
     by_day_times: dict[str, list[float]] = defaultdict(list)
     by_day_count: dict[str, int] = defaultdict(int)
     by_day_ai_insert: dict[str, int] = defaultdict(int)
@@ -211,7 +211,7 @@ def _append_hourly_segment(
 
 def summarize_hourly(
     rows: list[Heartbeat],
-    timezone: ZoneInfo = UTC,
+    timezone: tzinfo = UTC,
     user_agent_editors: dict[str, str] | None = None,
 ) -> list[HourlyRow]:
     by_hour_count: dict[int, int] = defaultdict(int)
