@@ -176,16 +176,26 @@ class HourlySegment(TypedDict):
     name: str
     active_minutes: int
     active_seconds: int
+    start_second: int
+    end_second: int
 
 
-def _append_hourly_segment(segments: list[HourlySegment], name: str, seconds: int) -> None:
+def _append_hourly_segment(
+    segments: list[HourlySegment], name: str, start_second: int, end_second: int
+) -> None:
+    seconds = end_second - start_second
     if seconds <= 0:
         return
 
-    if segments and segments[-1]["name"] == name:
+    if (
+        segments
+        and segments[-1]["name"] == name
+        and segments[-1]["end_second"] == start_second
+    ):
         total_seconds = segments[-1]["active_seconds"] + seconds
         segments[-1]["active_seconds"] = total_seconds
         segments[-1]["active_minutes"] = total_seconds // 60
+        segments[-1]["end_second"] = end_second
         return
 
     segments.append(
@@ -193,6 +203,8 @@ def _append_hourly_segment(segments: list[HourlySegment], name: str, seconds: in
             "name": name,
             "active_minutes": seconds // 60,
             "active_seconds": seconds,
+            "start_second": start_second,
+            "end_second": end_second,
         }
     )
 
@@ -222,12 +234,23 @@ def summarize_hourly(
         editor_name = _breakdown_name(current, "editor", user_agent_editors)
 
         while cursor < end_dt:
-            next_hour = cursor.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+            hour_start = cursor.replace(minute=0, second=0, microsecond=0)
+            next_hour = hour_start + timedelta(hours=1)
             chunk_end = min(end_dt, next_hour)
-            chunk_seconds = round((chunk_end - cursor).total_seconds())
+            chunk_start_second = max(0, min(3600, round((cursor - hour_start).total_seconds())))
+            chunk_end_second = max(
+                chunk_start_second,
+                min(3600, round((chunk_end - hour_start).total_seconds())),
+            )
+            chunk_seconds = chunk_end_second - chunk_start_second
             if chunk_seconds > 0:
                 by_hour_seconds[cursor.hour] += chunk_seconds
-                _append_hourly_segment(by_hour_segments[cursor.hour], editor_name, chunk_seconds)
+                _append_hourly_segment(
+                    by_hour_segments[cursor.hour],
+                    editor_name,
+                    chunk_start_second,
+                    chunk_end_second,
+                )
             cursor = chunk_end
 
     return [
