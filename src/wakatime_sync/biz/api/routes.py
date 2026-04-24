@@ -10,6 +10,7 @@ from wakatime_sync.biz.api.schemas import (
     DailyStatItem,
     DebugDbResponse,
     HealthResponse,
+    HourlyEditorSegment,
     HourlyStatItem,
     StatsBreakdownResponse,
     StatsDailyResponse,
@@ -135,7 +136,8 @@ def build_api_router() -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         rows = await load_heartbeats(window)
-        hours = summarize_hourly(rows, window.timezone)
+        user_agent_editors = await load_user_agent_editors()
+        hours = summarize_hourly(rows, window.timezone, user_agent_editors=user_agent_editors)
         peak = (
             max(hours, key=lambda item: (item["active_seconds"], item["heartbeats"]))
             if hours
@@ -150,7 +152,16 @@ def build_api_router() -> APIRouter:
             peak_hour=peak["hour"]
             if peak and (peak["active_seconds"] > 0 or peak["heartbeats"] > 0)
             else None,
-            hours=[HourlyStatItem(**item) for item in hours],
+            hours=[
+                HourlyStatItem(
+                    hour=item["hour"],
+                    heartbeats=item["heartbeats"],
+                    active_minutes=item["active_minutes"],
+                    active_seconds=item["active_seconds"],
+                    segments=[HourlyEditorSegment(**segment) for segment in item["segments"]],
+                )
+                for item in hours
+            ],
         )
 
     @router.get("/api/stats/ai", response_model=AIStatsResponse)

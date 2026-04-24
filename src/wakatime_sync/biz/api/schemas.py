@@ -55,11 +55,18 @@ class StatsBreakdownResponse(BaseModel):
     items: list[BreakdownItem]
 
 
+class HourlyEditorSegment(BaseModel):
+    name: str
+    active_minutes: int
+    active_seconds: int
+
+
 class HourlyStatItem(BaseModel):
     hour: int
     heartbeats: int
     active_minutes: int
     active_seconds: int
+    segments: list[HourlyEditorSegment]
 
 
 class StatsHourlyResponse(BaseModel):

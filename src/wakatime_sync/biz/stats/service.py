@@ -169,11 +169,42 @@ class HourlyRow(TypedDict):
     heartbeats: int
     active_minutes: int
     active_seconds: int
+    segments: list["HourlySegment"]
 
 
-def summarize_hourly(rows: list[Heartbeat], timezone: ZoneInfo = UTC) -> list[HourlyRow]:
+class HourlySegment(TypedDict):
+    name: str
+    active_minutes: int
+    active_seconds: int
+
+
+def _append_hourly_segment(segments: list[HourlySegment], name: str, seconds: int) -> None:
+    if seconds <= 0:
+        return
+
+    if segments and segments[-1]["name"] == name:
+        total_seconds = segments[-1]["active_seconds"] + seconds
+        segments[-1]["active_seconds"] = total_seconds
+        segments[-1]["active_minutes"] = total_seconds // 60
+        return
+
+    segments.append(
+        {
+            "name": name,
+            "active_minutes": seconds // 60,
+            "active_seconds": seconds,
+        }
+    )
+
+
+def summarize_hourly(
+    rows: list[Heartbeat],
+    timezone: ZoneInfo = UTC,
+    user_agent_editors: dict[str, str] | None = None,
+) -> list[HourlyRow]:
     by_hour_count: dict[int, int] = defaultdict(int)
     by_hour_seconds: dict[int, int] = defaultdict(int)
+    by_hour_segments: dict[int, list[HourlySegment]] = defaultdict(list)
 
     for hb in rows:
         hour = datetime.fromtimestamp(hb.time, timezone).hour
@@ -188,6 +219,7 @@ def summarize_hourly(rows: list[Heartbeat], timezone: ZoneInfo = UTC) -> list[Ho
 
         cursor = datetime.fromtimestamp(current.time, timezone)
         end_dt = datetime.fromtimestamp(nxt.time, timezone)
+        editor_name = _breakdown_name(current, "editor", user_agent_editors)
 
         while cursor < end_dt:
             next_hour = cursor.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
@@ -195,6 +227,7 @@ def summarize_hourly(rows: list[Heartbeat], timezone: ZoneInfo = UTC) -> list[Ho
             chunk_seconds = round((chunk_end - cursor).total_seconds())
             if chunk_seconds > 0:
                 by_hour_seconds[cursor.hour] += chunk_seconds
+                _append_hourly_segment(by_hour_segments[cursor.hour], editor_name, chunk_seconds)
             cursor = chunk_end
 
     return [
@@ -203,6 +236,7 @@ def summarize_hourly(rows: list[Heartbeat], timezone: ZoneInfo = UTC) -> list[Ho
             "heartbeats": by_hour_count[hour],
             "active_minutes": by_hour_seconds[hour] // 60,
             "active_seconds": by_hour_seconds[hour],
+            "segments": by_hour_segments[hour],
         }
         for hour in range(24)
     ]
