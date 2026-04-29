@@ -806,7 +806,7 @@ function renderProjectMappings(mappings) {
     <div class="project-mapping-row">
       <div class="project-mapping-row-copy">
         <div class="project-mapping-source">${escapeHtml(item.source_project)}</div>
-        <div class="project-mapping-arrow">→</div>
+        <div class="project-mapping-arrow" aria-hidden="true">→</div>
         <div class="project-mapping-target">${escapeHtml(item.target_project)}</div>
       </div>
       <div class="project-mapping-row-actions">
@@ -814,7 +814,7 @@ function renderProjectMappings(mappings) {
           class="nav-sync-btn secondary small"
           type="button"
           data-action="delete-project-mapping"
-          data-source-project="${encodeURIComponent(item.source_project)}"
+          data-source-project="${escapeHtml(item.source_project)}"
         >${t('project_mappings.delete')}</button>
       </div>
     </div>
@@ -1615,7 +1615,7 @@ if (projectMappingListEl) {
     if (!sourceProject) {
       return;
     }
-    void deleteProjectMapping(decodeURIComponent(sourceProject));
+    void deleteProjectMapping(sourceProject);
   });
 }
 
