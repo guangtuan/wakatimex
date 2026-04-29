@@ -205,7 +205,9 @@ def build_api_router() -> APIRouter:
         source_project = payload.source_project.strip()
         target_project = payload.target_project.strip()
         if not source_project or not target_project:
-            raise HTTPException(status_code=400, detail="source_project and target_project are required")
+            raise HTTPException(
+                status_code=400, detail="source_project and target_project are required"
+            )
 
         mapping_id = sha256(source_project.encode("utf-8")).hexdigest()[:64]
         existing = await ProjectMapping.get_or_none(source_project=source_project)
