@@ -289,7 +289,7 @@ def _breakdown_name(
         project = str(hb.project).strip() if hb.project else ""
         if not project:
             return "Unknown"
-        mapped_project = project_mappings.get(project) if project_mappings else None
+        mapped_project = project_mappings.get(project) if project_mappings is not None else None
         return mapped_project or project
 
     if key != "editor":

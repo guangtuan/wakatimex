@@ -783,6 +783,7 @@ function setProjectMappingLoadingState(isLoading) {
   }
   if (projectMappingSubmitEl.dataset.originalHtml) {
     projectMappingSubmitEl.innerHTML = projectMappingSubmitEl.dataset.originalHtml;
+    delete projectMappingSubmitEl.dataset.originalHtml;
   }
 }
 
