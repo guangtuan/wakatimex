@@ -209,11 +209,10 @@ def build_api_router() -> APIRouter:
                 status_code=400, detail="source_project and target_project are required"
             )
 
-        mapping_id = sha256(source_project.encode("utf-8")).hexdigest()
         existing = await ProjectMapping.get_or_none(source_project=source_project)
         if existing is None:
             await ProjectMapping.create(
-                id=mapping_id,
+                id=sha256(source_project.encode("utf-8")).hexdigest(),
                 source_project=source_project,
                 target_project=target_project,
             )
