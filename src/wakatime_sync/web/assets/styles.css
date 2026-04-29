@@ -1132,6 +1132,144 @@ button.calendar-cell {
   flex-shrink: 0;
 }
 
+.project-mappings-dashboard {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.project-mappings-head {
+  align-items: flex-start;
+}
+
+.project-mappings-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.project-mapping-form,
+.project-mapping-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.project-mapping-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.project-mapping-input {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.project-mapping-input:focus {
+  outline: 2px solid rgba(45, 164, 78, 0.18);
+  outline-offset: 1px;
+  border-color: var(--accent-primary);
+}
+
+.project-mapping-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.project-mapping-feedback {
+  min-height: 20px;
+  margin-top: 12px;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.project-mapping-feedback[data-state="success"] {
+  color: var(--accent-green);
+}
+
+.project-mapping-feedback[data-state="error"] {
+  color: var(--accent-red);
+}
+
+.project-mapping-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.project-mapping-list-head h2 {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.project-mapping-count {
+  padding: 4px 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.project-mapping-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+}
+
+.project-mapping-row-copy {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.project-mapping-source,
+.project-mapping-target {
+  max-width: min(100%, 360px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-mapping-source {
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.84rem;
+}
+
+.project-mapping-arrow {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.project-mapping-target {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.project-mapping-row-actions {
+  flex-shrink: 0;
+}
+
 .charts-page-section {
   margin-bottom: 20px;
 }
@@ -2024,6 +2162,10 @@ button.calendar-cell {
   .charts-section {
     grid-template-columns: 1fr;
   }
+
+  .project-mappings-layout {
+    grid-template-columns: 1fr;
+  }
   
   .chart-container.large {
     grid-column: 1;
@@ -2105,6 +2247,16 @@ button.calendar-cell {
   .page-head {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .project-mapping-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .project-mapping-row-copy {
+    width: 100%;
+    flex-wrap: wrap;
   }
 
   .page-month-nav {

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from hashlib import sha256
+
 from fastapi import APIRouter, HTTPException, Request
 from tortoise import Tortoise
 from tortoise.exceptions import DBConnectionError
@@ -12,6 +14,9 @@ from wakatime_sync.biz.api.schemas import (
     HealthResponse,
     HourlyEditorSegment,
     HourlyStatItem,
+    ProjectMappingItem,
+    ProjectMappingsResponse,
+    ProjectMappingUpsertRequest,
     StatsBreakdownResponse,
     StatsDailyResponse,
     StatsHourlyResponse,
@@ -20,6 +25,7 @@ from wakatime_sync.biz.api.schemas import (
 )
 from wakatime_sync.biz.stats.service import (
     load_heartbeats,
+    load_project_mappings,
     load_user_agent_editors,
     parse_window,
     summarize_ai_stats,
@@ -28,7 +34,7 @@ from wakatime_sync.biz.stats.service import (
     summarize_hourly,
 )
 from wakatime_sync.sys.config import Settings
-from wakatime_sync.sys.db import Heartbeat, SyncState
+from wakatime_sync.sys.db import Heartbeat, ProjectMapping, SyncState
 from wakatime_sync.sys.version import get_app_version
 
 
@@ -109,11 +115,13 @@ def build_api_router() -> APIRouter:
 
         rows = await load_heartbeats(window)
         user_agent_editors = await load_user_agent_editors() if by == "editor" else None
+        project_mappings = await load_project_mappings() if by == "project" else None
         items = summarize_breakdown(
             rows,
             key=by,
             limit=max(1, min(limit, 50)),
             user_agent_editors=user_agent_editors,
+            project_mappings=project_mappings,
         )
 
         return StatsBreakdownResponse(
@@ -182,6 +190,42 @@ def build_api_router() -> APIRouter:
             total_changes=stats.total_changes,
             ai_percentage=stats.ai_percentage,
         )
+
+    @router.get("/api/project-mappings", response_model=ProjectMappingsResponse)
+    async def project_mappings() -> ProjectMappingsResponse:
+        rows = await ProjectMapping.all().order_by("source_project").values(
+            "source_project", "target_project"
+        )
+        return ProjectMappingsResponse(mappings=[ProjectMappingItem(**row) for row in rows])
+
+    @router.post("/api/project-mappings", response_model=ProjectMappingsResponse)
+    async def upsert_project_mapping(
+        payload: ProjectMappingUpsertRequest,
+    ) -> ProjectMappingsResponse:
+        source_project = payload.source_project.strip()
+        target_project = payload.target_project.strip()
+        if not source_project or not target_project:
+            raise HTTPException(status_code=400, detail="source_project and target_project are required")
+
+        mapping_id = sha256(source_project.encode("utf-8")).hexdigest()[:64]
+        existing = await ProjectMapping.get_or_none(source_project=source_project)
+        if existing is None:
+            await ProjectMapping.create(
+                id=mapping_id,
+                source_project=source_project,
+                target_project=target_project,
+            )
+        else:
+            await ProjectMapping.filter(id=existing.id).update(target_project=target_project)
+
+        return await project_mappings()
+
+    @router.delete("/api/project-mappings/{source_project}", response_model=ProjectMappingsResponse)
+    async def delete_project_mapping(source_project: str) -> ProjectMappingsResponse:
+        deleted = await ProjectMapping.filter(source_project=source_project).delete()
+        if not deleted:
+            raise HTTPException(status_code=404, detail="project mapping not found")
+        return await project_mappings()
 
     @router.get("/api/debug/db", response_model=DebugDbResponse)
     async def debug_db() -> DebugDbResponse:

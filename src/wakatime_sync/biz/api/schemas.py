@@ -87,3 +87,17 @@ class AIStatsResponse(BaseModel):
     human_line_changes: int
     total_changes: int
     ai_percentage: float
+
+
+class ProjectMappingItem(BaseModel):
+    source_project: str
+    target_project: str
+
+
+class ProjectMappingsResponse(BaseModel):
+    mappings: list[ProjectMappingItem]
+
+
+class ProjectMappingUpsertRequest(BaseModel):
+    source_project: str
+    target_project: str
