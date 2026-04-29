@@ -57,6 +57,17 @@ class SyncState(Model):
         table = "sync_state"
 
 
+class ProjectMapping(Model):
+    id = fields.CharField(max_length=64, pk=True)
+    source_project = fields.CharField(max_length=255, unique=True)
+    target_project = fields.CharField(max_length=255, index=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "project_mapping"
+
+
 async def init_db(mysql_dsn: str) -> None:
     await Tortoise.init(
         db_url=mysql_dsn,

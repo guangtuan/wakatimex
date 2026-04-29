@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import TypedDict
 from zoneinfo import ZoneInfo
 
-from wakatime_sync.sys.db import Heartbeat, UserAgent
+from wakatime_sync.sys.db import Heartbeat, ProjectMapping, UserAgent
 
 # WakaTime official timeout: if gap between two consecutive heartbeats
 # exceeds this value, the interval is NOT counted as coding time.
@@ -64,6 +64,15 @@ async def load_user_agent_editors() -> dict[str, str]:
     rows = await UserAgent.exclude(editor=None).values("id", "editor")
     return {
         str(row["id"]): str(row["editor"]) for row in rows if row.get("id") and row.get("editor")
+    }
+
+
+async def load_project_mappings() -> dict[str, str]:
+    rows = await ProjectMapping.all().values("source_project", "target_project")
+    return {
+        str(row["source_project"]): str(row["target_project"])
+        for row in rows
+        if row.get("source_project") and row.get("target_project")
     }
 
 
@@ -139,12 +148,13 @@ def summarize_breakdown(
     key: str,
     limit: int,
     user_agent_editors: dict[str, str] | None = None,
+    project_mappings: dict[str, str] | None = None,
 ) -> list[BreakdownRow]:
     by_key_times: dict[str, list[float]] = defaultdict(list)
     by_key_count: dict[str, int] = defaultdict(int)
 
     for hb in rows:
-        name = _breakdown_name(hb, key, user_agent_editors)
+        name = _breakdown_name(hb, key, user_agent_editors, project_mappings)
         by_key_count[name] += 1
         by_key_times[name].append(hb.time)
 
@@ -232,7 +242,7 @@ def summarize_hourly(
 
         cursor = datetime.fromtimestamp(current.time, timezone)
         end_dt = datetime.fromtimestamp(nxt.time, timezone)
-        editor_name = _breakdown_name(current, "editor", user_agent_editors)
+        editor_name = _breakdown_name(current, "editor", user_agent_editors, None)
 
         while cursor < end_dt:
             hour_start = cursor.replace(minute=0, second=0, microsecond=0)
@@ -273,7 +283,15 @@ def _breakdown_name(
     hb: Heartbeat,
     key: str,
     user_agent_editors: dict[str, str] | None,
+    project_mappings: dict[str, str] | None,
 ) -> str:
+    if key == "project":
+        project = str(hb.project).strip() if hb.project else ""
+        if not project:
+            return "Unknown"
+        mapped_project = project_mappings.get(project) if project_mappings else None
+        return mapped_project or project
+
     if key != "editor":
         value = getattr(hb, key)
         return str(value) if value else "Unknown"

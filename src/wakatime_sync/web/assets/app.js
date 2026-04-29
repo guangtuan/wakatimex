@@ -32,6 +32,13 @@ const prevMonthDeltaEl = document.getElementById('prev-month-delta');
 const langSwitchEl = document.getElementById('lang-switch');
 const langEnBtn = document.getElementById('lang-en-btn');
 const langZhBtn = document.getElementById('lang-zh-btn');
+const projectMappingFormEl = document.getElementById('project-mapping-form');
+const projectMappingSourceEl = document.getElementById('project-mapping-source');
+const projectMappingTargetEl = document.getElementById('project-mapping-target');
+const projectMappingSubmitEl = document.getElementById('project-mapping-submit');
+const projectMappingFeedbackEl = document.getElementById('project-mapping-feedback');
+const projectMappingListEl = document.getElementById('project-mapping-list');
+const projectMappingCountEl = document.getElementById('project-mapping-count');
 const pageType = document.body?.dataset.page || 'home';
 const APP_TIMEZONE = 'Asia/Shanghai';
 const SECONDS_PER_HOUR = 60 * 60;
@@ -91,6 +98,7 @@ const I18N = {
     doc: {
       home_title: 'WakaTime Activity',
       charts_title: 'WakaTime Charts',
+      project_mappings_title: 'Project Mappings',
     },
     brand: {
       activity: 'Activity',
@@ -101,8 +109,29 @@ const I18N = {
     page: {
       home: 'Home',
       charts: 'Charts',
+      project_mappings: 'Mappings',
       charts_title: 'Monthly charts and rankings',
       charts_description: 'Open language, project, AI, and ranking panels on a dedicated page.',
+    },
+    project_mappings: {
+      eyebrow: 'Project Mapping',
+      title: 'Merge renamed folders into one project',
+      description: 'Map a source project name to a target project name. All project charts and daily project breakdowns will aggregate by the target name.',
+      form_title: 'Add or update mapping',
+      list_title: 'Current mappings',
+      source_label: 'Source project',
+      target_label: 'Target project',
+      save: 'Save mapping',
+      saving: 'Saving...',
+      delete: 'Delete',
+      empty: 'No project mappings yet.',
+      count: '{count} mappings',
+      invalid: 'Please fill in both project names.',
+      saved: 'Mapping saved.',
+      deleted: 'Mapping deleted.',
+      load_error: 'Failed to load mappings.',
+      save_error: 'Failed to save mapping.',
+      delete_error: 'Failed to delete mapping.',
     },
     mobile: {
       sync: {
@@ -218,6 +247,7 @@ const I18N = {
     doc: {
       home_title: 'WakaTime 活动面板',
       charts_title: 'WakaTime 图表面板',
+      project_mappings_title: '项目映射',
     },
     brand: {
       activity: '活动',
@@ -228,8 +258,29 @@ const I18N = {
     page: {
       home: '首页',
       charts: '图表',
+      project_mappings: '映射',
       charts_title: '月度图表与排行',
       charts_description: '把语言、项目、AI 和排行面板放到独立页面查看。',
+    },
+    project_mappings: {
+      eyebrow: '项目映射',
+      title: '把重命名后的文件夹归并到同一个项目',
+      description: '把源项目名映射到目标项目名后，项目图表和按天项目统计都会按目标项目聚合。',
+      form_title: '新增或更新映射',
+      list_title: '当前映射',
+      source_label: '源项目',
+      target_label: '目标项目',
+      save: '保存映射',
+      saving: '保存中…',
+      delete: '删除',
+      empty: '暂时还没有项目映射。',
+      count: '{count} 条映射',
+      invalid: '请填写源项目和目标项目。',
+      saved: '映射已保存。',
+      deleted: '映射已删除。',
+      load_error: '项目映射加载失败。',
+      save_error: '保存项目映射失败。',
+      delete_error: '删除项目映射失败。',
     },
     mobile: {
       sync: {
@@ -387,7 +438,11 @@ function setStoredLanguage(lang) {
 
 function applyTranslations() {
   document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
-  document.title = pageType === 'charts' ? t('doc.charts_title') : t('doc.home_title');
+  document.title = pageType === 'charts'
+    ? t('doc.charts_title')
+    : pageType === 'project-mappings'
+      ? t('doc.project_mappings_title')
+      : t('doc.home_title');
 
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     el.textContent = t(el.dataset.i18n);
@@ -419,7 +474,11 @@ function setLanguage(lang) {
   setStoredLanguage(lang);
   applyTranslations();
   void loadState();
-  void loadStats();
+  if (pageType === 'project-mappings') {
+    void loadProjectMappings();
+  } else {
+    void loadStats();
+  }
 }
 
 function displayName(name) {
@@ -699,6 +758,126 @@ async function runSyncRange() {
     alert(t('sync.error_prefix', { error: err }));
   } finally {
     setSyncLoadingState(false);
+  }
+}
+
+function setProjectMappingFeedback(messageKey = '', type = '') {
+  if (!projectMappingFeedbackEl) {
+    return;
+  }
+  projectMappingFeedbackEl.textContent = messageKey ? t(messageKey) : '';
+  projectMappingFeedbackEl.dataset.state = type;
+}
+
+function setProjectMappingLoadingState(isLoading) {
+  if (!projectMappingSubmitEl || !projectMappingSourceEl || !projectMappingTargetEl) {
+    return;
+  }
+  projectMappingSubmitEl.disabled = isLoading;
+  projectMappingSourceEl.disabled = isLoading;
+  projectMappingTargetEl.disabled = isLoading;
+  if (isLoading) {
+    projectMappingSubmitEl.dataset.originalHtml = projectMappingSubmitEl.dataset.originalHtml || projectMappingSubmitEl.innerHTML;
+    projectMappingSubmitEl.textContent = t('project_mappings.saving');
+    return;
+  }
+  if (projectMappingSubmitEl.dataset.originalHtml) {
+    projectMappingSubmitEl.innerHTML = projectMappingSubmitEl.dataset.originalHtml;
+  }
+}
+
+function renderProjectMappings(mappings) {
+  if (!projectMappingListEl) {
+    return;
+  }
+
+  const safeMappings = Array.isArray(mappings) ? mappings : [];
+  if (projectMappingCountEl) {
+    projectMappingCountEl.textContent = t('project_mappings.count', { count: safeMappings.length });
+  }
+
+  if (!safeMappings.length) {
+    projectMappingListEl.innerHTML = `<div class="calendar-hover-empty">${t('project_mappings.empty')}</div>`;
+    return;
+  }
+
+  projectMappingListEl.innerHTML = safeMappings.map((item) => `
+    <div class="project-mapping-row">
+      <div class="project-mapping-row-copy">
+        <div class="project-mapping-source">${escapeHtml(item.source_project)}</div>
+        <div class="project-mapping-arrow">→</div>
+        <div class="project-mapping-target">${escapeHtml(item.target_project)}</div>
+      </div>
+      <div class="project-mapping-row-actions">
+        <button
+          class="nav-sync-btn secondary small"
+          type="button"
+          data-action="delete-project-mapping"
+          data-source-project="${encodeURIComponent(item.source_project)}"
+        >${t('project_mappings.delete')}</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadProjectMappings() {
+  if (!projectMappingListEl) {
+    return;
+  }
+
+  try {
+    const data = await fetchJson('/api/project-mappings');
+    renderProjectMappings(data.mappings || []);
+  } catch {
+    if (projectMappingCountEl) {
+      projectMappingCountEl.textContent = '—';
+    }
+    projectMappingListEl.innerHTML = `<div class="calendar-hover-empty">${t('project_mappings.load_error')}</div>`;
+  }
+}
+
+async function saveProjectMapping(event) {
+  event.preventDefault();
+
+  const sourceProject = projectMappingSourceEl?.value?.trim() || '';
+  const targetProject = projectMappingTargetEl?.value?.trim() || '';
+  if (!sourceProject || !targetProject) {
+    setProjectMappingFeedback('project_mappings.invalid', 'error');
+    return;
+  }
+
+  setProjectMappingFeedback('', '');
+  setProjectMappingLoadingState(true);
+
+  try {
+    const data = await fetchJson('/api/project-mappings', {
+      method: 'POST',
+      body: JSON.stringify({
+        source_project: sourceProject,
+        target_project: targetProject,
+      }),
+    });
+    renderProjectMappings(data.mappings || []);
+    if (projectMappingFormEl) {
+      projectMappingFormEl.reset();
+    }
+    setProjectMappingFeedback('project_mappings.saved', 'success');
+  } catch {
+    setProjectMappingFeedback('project_mappings.save_error', 'error');
+  } finally {
+    setProjectMappingLoadingState(false);
+  }
+}
+
+async function deleteProjectMapping(sourceProject) {
+  try {
+    const data = await fetchJson(`/api/project-mappings/${encodeURIComponent(sourceProject)}`, {
+      method: 'DELETE',
+    });
+    renderProjectMappings(data.mappings || []);
+    setProjectMappingFeedback('project_mappings.deleted', 'success');
+  } catch {
+    setProjectMappingFeedback('project_mappings.delete_error', 'error');
   }
 }
 
@@ -1419,8 +1598,32 @@ if (syncRangeBtn) {
   syncRangeBtn.addEventListener('click', runSyncRange);
 }
 
+if (projectMappingFormEl) {
+  projectMappingFormEl.addEventListener('submit', saveProjectMapping);
+}
+
+if (projectMappingListEl) {
+  projectMappingListEl.addEventListener('click', (event) => {
+    const button = event.target instanceof Element
+      ? event.target.closest('[data-action="delete-project-mapping"]')
+      : null;
+    if (!button) {
+      return;
+    }
+    const sourceProject = button.getAttribute('data-source-project');
+    if (!sourceProject) {
+      return;
+    }
+    void deleteProjectMapping(decodeURIComponent(sourceProject));
+  });
+}
+
 applyTranslations();
 renderCalendarSkeleton(currentMonth);
 loadHealth();
 loadState();
-loadStats();
+if (pageType === 'project-mappings') {
+  loadProjectMappings();
+} else {
+  loadStats();
+}

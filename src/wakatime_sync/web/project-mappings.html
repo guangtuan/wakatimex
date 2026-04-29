@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Project Mappings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="shortcut icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body data-page="project-mappings">
+    <div class="app">
+      <nav class="navbar">
+        <div class="nav-brand">
+          <svg class="logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="4" width="56" height="56" rx="14" fill="#ffffff" stroke="#d0d7de" stroke-width="2"/>
+            <rect x="14" y="14" width="10" height="10" rx="3" fill="#ebedf0"/>
+            <rect x="27" y="14" width="10" height="10" rx="3" fill="#9be9a8"/>
+            <rect x="40" y="14" width="10" height="10" rx="3" fill="#40c463"/>
+            <rect x="14" y="27" width="10" height="10" rx="3" fill="#9be9a8"/>
+            <rect x="27" y="27" width="10" height="10" rx="3" fill="#30a14e"/>
+            <rect x="40" y="27" width="10" height="10" rx="3" fill="#216e39"/>
+            <rect x="14" y="40" width="10" height="10" rx="3" fill="#ebedf0"/>
+            <rect x="27" y="40" width="10" height="10" rx="3" fill="#40c463"/>
+            <rect x="40" y="40" width="10" height="10" rx="3" fill="#30a14e"/>
+          </svg>
+          <span class="brand-text">WakaTimeX</span>
+          <span class="brand-version" id="version">v?.?.?</span>
+        </div>
+        <div class="nav-meta">
+          <div class="page-nav" aria-label="Page navigation">
+            <a class="page-nav-link" href="/" data-i18n="page.home">Home</a>
+            <a class="page-nav-link" href="/chart.html" data-i18n="page.charts">Charts</a>
+            <a class="page-nav-link is-active" href="/project-mappings.html" data-i18n="page.project_mappings">Mappings</a>
+          </div>
+          <div id="lang-switch" class="lang-switch" role="group" aria-label="Language switch">
+            <button id="lang-en-btn" class="lang-btn" type="button" data-lang="en">EN</button>
+            <button id="lang-zh-btn" class="lang-btn" type="button" data-lang="zh">中</button>
+          </div>
+          <div class="nav-sync-group">
+            <div class="nav-sync-range">
+              <label class="sync-range-field">
+                <span class="sync-range-label" data-i18n="sync.from">From</span>
+                <input id="sync-start-date" class="sync-date-input" type="date" />
+              </label>
+              <label class="sync-range-field">
+                <span class="sync-range-label" data-i18n="sync.to">To</span>
+                <input id="sync-end-date" class="sync-date-input" type="date" />
+              </label>
+              <button id="sync-range-btn" class="nav-sync-btn primary" type="button">
+                <span data-i18n="sync.run_range">Sync</span>
+              </button>
+            </div>
+          </div>
+          <span class="sync-badge" id="last-sync">loading...</span>
+        </div>
+      </nav>
+
+      <main class="dashboard project-mappings-dashboard">
+        <section class="page-head project-mappings-head">
+          <div class="page-head-copy">
+            <div class="page-head-eyebrow" data-i18n="project_mappings.eyebrow">Project Mapping</div>
+            <h1 data-i18n="project_mappings.title">Merge renamed folders into one project</h1>
+            <p data-i18n="project_mappings.description">Map a source project name to a target project name. All project charts and daily project breakdowns will aggregate by the target name.</p>
+          </div>
+        </section>
+
+        <section class="project-mappings-layout">
+          <div class="detail-card project-mapping-form-card">
+            <h2 data-i18n="project_mappings.form_title">Add or update mapping</h2>
+            <form id="project-mapping-form" class="project-mapping-form">
+              <label class="project-mapping-field">
+                <span data-i18n="project_mappings.source_label">Source project</span>
+                <input id="project-mapping-source" class="project-mapping-input" type="text" maxlength="255" />
+              </label>
+              <label class="project-mapping-field">
+                <span data-i18n="project_mappings.target_label">Target project</span>
+                <input id="project-mapping-target" class="project-mapping-input" type="text" maxlength="255" />
+              </label>
+              <div class="project-mapping-actions">
+                <button id="project-mapping-submit" class="nav-sync-btn primary" type="submit">
+                  <span data-i18n="project_mappings.save">Save mapping</span>
+                </button>
+              </div>
+            </form>
+            <div id="project-mapping-feedback" class="project-mapping-feedback" aria-live="polite"></div>
+          </div>
+
+          <div class="detail-card project-mapping-list-card">
+            <div class="project-mapping-list-head">
+              <h2 data-i18n="project_mappings.list_title">Current mappings</h2>
+              <span id="project-mapping-count" class="project-mapping-count">0</span>
+            </div>
+            <div id="project-mapping-list" class="project-mapping-list"></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <p data-i18n="footer.copy">WakaTime Sync Dashboard © 2025</p>
+      </footer>
+    </div>
+    <script src="/assets/app.js"></script>
+  </body>
+</html>
