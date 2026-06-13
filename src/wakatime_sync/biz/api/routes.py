@@ -22,10 +22,13 @@ from wakatime_sync.biz.api.schemas import (
     ProjectMappingItem,
     ProjectMappingsResponse,
     ProjectMappingUpsertRequest,
+    SyncHistoryItemResponse,
+    SyncHistoryResponse,
     StatsBreakdownResponse,
     StatsDailyResponse,
     StatsHourlyResponse,
     SyncRunResponse,
+    SyncRunStepResponse,
     SyncStateResponse,
     UserAgentRefreshResponse,
 )
@@ -43,7 +46,7 @@ from wakatime_sync.biz.stats.service import (
     summarize_hourly,
 )
 from wakatime_sync.sys.config import Settings
-from wakatime_sync.sys.db import EditorMapping, Heartbeat, ProjectMapping, SyncState
+from wakatime_sync.sys.db import EditorMapping, Heartbeat, ProjectMapping, SyncRun, SyncState
 from wakatime_sync.sys.version import get_app_version
 
 
@@ -58,7 +61,7 @@ def build_api_router() -> APIRouter:
     @router.post("/api/sync/run", response_model=SyncRunResponse)
     async def run_sync(request: Request) -> SyncRunResponse:
         sync_service = request.app.state.sync_service
-        result = await sync_service.sync_recent()
+        result = await sync_service.sync_recent(trigger="manual")
         return SyncRunResponse(
             dates=result.dates,
             fetched=result.fetched,
@@ -69,7 +72,7 @@ def build_api_router() -> APIRouter:
     @router.post("/api/sync/range", response_model=SyncRunResponse)
     async def run_sync_range(request: Request, start: str, end: str) -> SyncRunResponse:
         sync_service = request.app.state.sync_service
-        result = await sync_service.sync_range(start, end)
+        result = await sync_service.sync_range(start, end, trigger="manual")
         return SyncRunResponse(
             dates=result.dates,
             fetched=result.fetched,
@@ -85,11 +88,49 @@ def build_api_router() -> APIRouter:
     @router.post("/api/sync/user-agents", response_model=UserAgentRefreshResponse)
     async def refresh_user_agents(request: Request) -> UserAgentRefreshResponse:
         sync_service = request.app.state.sync_service
-        result = await sync_service.refresh_user_agents(backfill_heartbeats=True)
+        result = await sync_service.refresh_user_agents(backfill_heartbeats=True, trigger="manual")
         return UserAgentRefreshResponse(
             total_user_agents=result.total_user_agents,
             backfilled_heartbeats=result.backfilled_heartbeats,
         )
+
+    @router.get("/api/sync/history", response_model=SyncHistoryResponse)
+    async def sync_history(limit: int = 10) -> SyncHistoryResponse:
+        rows = (
+            await SyncRun.all()
+            .order_by("-started_at")
+            .limit(max(1, min(limit, 30)))
+            .prefetch_related("steps")
+        )
+
+        runs = [
+            SyncHistoryItemResponse(
+                id=row.id,
+                sync_type=row.sync_type,
+                trigger_source=row.trigger_source,
+                status=row.status,
+                started_at=row.started_at.isoformat(),
+                finished_at=row.finished_at.isoformat() if row.finished_at else None,
+                duration_ms=row.duration_ms,
+                request_payload=row.request_payload if isinstance(row.request_payload, dict) else None,
+                summary=row.summary if isinstance(row.summary, dict) else None,
+                error_message=row.error_message,
+                steps=[
+                    SyncRunStepResponse(
+                        step_key=step.step_key,
+                        status=step.status,
+                        started_at=step.started_at.isoformat(),
+                        finished_at=step.finished_at.isoformat() if step.finished_at else None,
+                        duration_ms=step.duration_ms,
+                        details=step.details if isinstance(step.details, dict) else None,
+                        error_message=step.error_message,
+                    )
+                    for step in sorted(row.steps, key=lambda item: (item.step_order, item.id))
+                ],
+            )
+            for row in rows
+        ]
+        return SyncHistoryResponse(runs=runs)
 
     @router.get("/api/stats/daily", response_model=StatsDailyResponse)
     async def stats_daily(start: str | None = None, end: str | None = None) -> StatsDailyResponse:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[import-untyped]
 from loguru import logger
 
 from wakatime_sync.biz.sync.service import SyncService
@@ -27,7 +27,7 @@ def build_scheduler(
 
     async def run_job() -> None:
         logger.info("scheduled sync start")
-        await sync_service.sync_recent()
+        await sync_service.sync_recent(trigger="scheduler")
 
     for hour, minute in parse_sync_times(times_str):
         scheduler.add_job(

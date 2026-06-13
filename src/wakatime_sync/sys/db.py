@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from tortoise import Tortoise, fields
+from tortoise.fields.relational import ForeignKeyRelation, ReverseRelation
 from tortoise.models import Model
 
 
@@ -55,6 +56,45 @@ class SyncState(Model):
 
     class Meta:
         table = "sync_state"
+
+
+class SyncRun(Model):
+    id = fields.CharField(max_length=36, pk=True)
+    sync_type = fields.CharField(max_length=32, index=True)
+    trigger_source = fields.CharField(max_length=32, index=True)
+    status = fields.CharField(max_length=16, index=True)
+    request_payload = fields.JSONField(null=True)  # type: ignore[var-annotated]
+    summary = fields.JSONField(null=True)  # type: ignore[var-annotated]
+    error_message = fields.TextField(null=True)
+    started_at = fields.DatetimeField(index=True)
+    finished_at = fields.DatetimeField(null=True)
+    duration_ms = fields.IntField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+    steps: ReverseRelation[SyncRunStep]
+
+    class Meta:
+        table = "sync_run"
+
+
+class SyncRunStep(Model):
+    id = fields.IntField(pk=True)
+    run: ForeignKeyRelation[SyncRun] = fields.ForeignKeyField(
+        "models.SyncRun", related_name="steps", on_delete=fields.CASCADE
+    )
+    step_order = fields.IntField()
+    step_key = fields.CharField(max_length=64)
+    status = fields.CharField(max_length=16, index=True)
+    details = fields.JSONField(null=True)  # type: ignore[var-annotated]
+    error_message = fields.TextField(null=True)
+    started_at = fields.DatetimeField()
+    finished_at = fields.DatetimeField(null=True)
+    duration_ms = fields.IntField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "sync_run_step"
+        ordering = ["step_order", "id"]
 
 
 class ProjectMapping(Model):

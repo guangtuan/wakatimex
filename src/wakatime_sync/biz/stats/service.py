@@ -100,7 +100,7 @@ async def load_project_options() -> list[MappingOptionRow]:
         .group_by("project")
         .values("project", "total")
     )
-    data = [
+    data: list[MappingOptionRow] = [
         {"name": str(row["project"]).strip(), "count": int(row["total"])}
         for row in rows
         if row.get("project") and str(row["project"]).strip()
@@ -135,7 +135,7 @@ async def load_editor_options() -> list[MappingOptionRow]:
         if name:
             counts[name] += int(row.get("total") or 0)
 
-    data = [{"name": name, "count": count} for name, count in counts.items()]
+    data: list[MappingOptionRow] = [{"name": name, "count": count} for name, count in counts.items()]
     data.sort(key=lambda item: (-item["count"], item["name"].lower()))
     return data
 

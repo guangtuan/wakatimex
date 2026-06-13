@@ -4,6 +4,7 @@ const syncRangeBtn = document.getElementById('sync-range-btn');
 const syncUserAgentsBtn = document.getElementById('sync-user-agents-btn');
 const syncStartDateEl = document.getElementById('sync-start-date');
 const syncEndDateEl = document.getElementById('sync-end-date');
+const syncHistoryListEl = document.getElementById('sync-history-list');
 const todayActiveEl = document.getElementById('today-active');
 const todayHeartbeatsEl = document.getElementById('today-heartbeats');
 const weekActiveEl = document.getElementById('week-active');
@@ -60,6 +61,7 @@ let cachedCurrentDays = [];
 let cachedPrevMonthDays = [];
 let projectMappingOptions = [];
 let editorMappingOptions = [];
+let syncHistoryRuns = [];
 
 const dailyBreakdownCache = new Map();
 const LANGUAGE_STORAGE_KEY = 'wakatime-sync.lang';
@@ -109,6 +111,7 @@ const I18N = {
       home_title: 'WakaTime Activity',
       charts_title: 'WakaTime Charts',
       project_mappings_title: 'Project Mappings',
+      sync_history_title: 'Sync History',
     },
     brand: {
       activity: 'Activity',
@@ -120,6 +123,7 @@ const I18N = {
       home: 'Home',
       charts: 'Charts',
       project_mappings: 'Mappings',
+      sync_history: 'Sync History',
       charts_title: 'Monthly charts and rankings',
       charts_description: 'Open language, project, AI, and ranking panels on a dedicated page.',
     },
@@ -204,6 +208,43 @@ const I18N = {
       synced: 'Synced: {time}',
       never_synced: 'Never synced',
     },
+    sync_history: {
+      eyebrow: 'Sync History',
+      title: 'Recent sync runs',
+      description: 'Track each sync and review how long every step took.',
+      empty: 'No sync runs yet.',
+      load_error: 'Failed to load sync history.',
+      running: 'Running',
+      success: 'Success',
+      failed: 'Failed',
+      trigger_manual: 'Manual',
+      trigger_scheduler: 'Scheduled',
+      trigger_startup: 'Startup',
+      type_heartbeat_recent: 'Recent heartbeats',
+      type_heartbeat_range: 'Range heartbeats',
+      type_user_agents: 'User agents',
+      step_load_user_agent_editor_map: 'Load local user agent editors',
+      step_sync_date: 'Sync {date}',
+      step_update_last_sync_state: 'Update last sync time',
+      step_fetch_user_agents: 'Fetch remote user agents',
+      step_load_existing_user_agent_editor_map: 'Load existing user agent editors',
+      step_upsert_user_agents: 'Save user agents',
+      step_backfill_missing_editors: 'Backfill missing editors',
+      summary_heartbeat_window: '{start} to {end}',
+      summary_heartbeat_counts: '{dates} days, {fetched} fetched, {inserted} new, {updated} updated',
+      summary_user_agents: '{count} user agents, {backfilled} backfilled',
+      started_at: 'Started {time}',
+      duration: '{duration}',
+      trigger: 'Trigger: {trigger}',
+      error: 'Error: {error}',
+      metric_pages: '{count} pages',
+      metric_fetched: '{count} fetched',
+      metric_inserted: '{count} new',
+      metric_updated: '{count} updated',
+      metric_total_user_agents: '{count} user agents',
+      metric_backfilled_heartbeats: '{count} backfilled',
+      metric_last_sync_at: 'last sync {time}',
+    },
     weekday: {
       mon: 'Mon',
       tue: 'Tue',
@@ -286,6 +327,7 @@ const I18N = {
       home_title: 'WakaTime 活动面板',
       charts_title: 'WakaTime 图表面板',
       project_mappings_title: '项目映射',
+      sync_history_title: '同步记录',
     },
     brand: {
       activity: '活动',
@@ -297,6 +339,7 @@ const I18N = {
       home: '首页',
       charts: '图表',
       project_mappings: '映射',
+      sync_history: '同步记录',
       charts_title: '月度图表与排行',
       charts_description: '把语言、项目、AI 和排行面板放到独立页面查看。',
     },
@@ -380,6 +423,43 @@ const I18N = {
     state: {
       synced: '已同步：{time}',
       never_synced: '尚未同步',
+    },
+    sync_history: {
+      eyebrow: '同步记录',
+      title: '最近同步',
+      description: '记录每次同步，并展示每个步骤的耗时。',
+      empty: '暂时还没有同步记录。',
+      load_error: '同步记录加载失败。',
+      running: '进行中',
+      success: '成功',
+      failed: '失败',
+      trigger_manual: '手动',
+      trigger_scheduler: '定时',
+      trigger_startup: '启动预热',
+      type_heartbeat_recent: '最近心跳同步',
+      type_heartbeat_range: '区间心跳同步',
+      type_user_agents: 'User Agent 同步',
+      step_load_user_agent_editor_map: '加载本地 User Agent 编辑器映射',
+      step_sync_date: '同步 {date}',
+      step_update_last_sync_state: '更新最后同步时间',
+      step_fetch_user_agents: '拉取远程 User Agent',
+      step_load_existing_user_agent_editor_map: '加载现有 User Agent 编辑器映射',
+      step_upsert_user_agents: '保存 User Agent',
+      step_backfill_missing_editors: '回填缺失编辑器',
+      summary_heartbeat_window: '{start} 至 {end}',
+      summary_heartbeat_counts: '{dates} 天，拉取 {fetched}，新增 {inserted}，更新 {updated}',
+      summary_user_agents: '{count} 个 User Agent，回填 {backfilled}',
+      started_at: '开始于 {time}',
+      duration: '{duration}',
+      trigger: '触发方式：{trigger}',
+      error: '错误：{error}',
+      metric_pages: '{count} 页',
+      metric_fetched: '拉取 {count}',
+      metric_inserted: '新增 {count}',
+      metric_updated: '更新 {count}',
+      metric_total_user_agents: '{count} 个 User Agent',
+      metric_backfilled_heartbeats: '回填 {count}',
+      metric_last_sync_at: '最后同步 {time}',
     },
     weekday: {
       mon: '周一',
@@ -508,7 +588,9 @@ function applyTranslations() {
     ? t('doc.charts_title')
     : pageType === 'project-mappings'
       ? t('doc.project_mappings_title')
-      : t('doc.home_title');
+      : pageType === 'sync-history'
+        ? t('doc.sync_history_title')
+        : t('doc.home_title');
 
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     el.textContent = t(el.dataset.i18n);
@@ -543,11 +625,12 @@ function setLanguage(lang) {
     refreshProjectMappingSelects();
     refreshEditorMappingSelects();
   }
+  renderSyncHistory(syncHistoryRuns);
   void loadState();
   if (pageType === 'project-mappings') {
     void loadProjectMappings();
     void loadEditorMappings();
-  } else {
+  } else if (pageType !== 'sync-history') {
     void loadStats();
   }
 }
@@ -775,6 +858,161 @@ async function loadState() {
   }
 }
 
+function formatSyncTimestamp(value) {
+  if (!value) {
+    return '—';
+  }
+  const date = new Date(value);
+  return date.toLocaleString(localeForLanguage(), { timeZone: APP_TIMEZONE });
+}
+
+function formatDurationMs(value) {
+  const ms = Number(value || 0);
+  if (!ms) {
+    return '—';
+  }
+  if (ms < 1000) {
+    return `${ms} ms`;
+  }
+  const seconds = ms / 1000;
+  if (seconds < 60) {
+    return `${seconds.toFixed(seconds >= 10 ? 1 : 2)} s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainSeconds = seconds % 60;
+  return `${minutes}m ${remainSeconds.toFixed(remainSeconds >= 10 ? 0 : 1)}s`;
+}
+
+function syncHistoryTypeLabel(syncType) {
+  return t(`sync_history.type_${syncType}`);
+}
+
+function syncHistoryStatusLabel(status) {
+  return t(`sync_history.${status}`);
+}
+
+function syncHistoryTriggerLabel(triggerSource) {
+  return t(`sync_history.trigger_${triggerSource}`);
+}
+
+function syncHistoryStepLabel(step) {
+  const vars = step?.details && typeof step.details === 'object' ? step.details : {};
+  return t(`sync_history.step_${step.step_key}`, vars);
+}
+
+function syncHistoryMetricText(key, value) {
+  if (value === null || value === undefined || value === '') {
+    return '';
+  }
+  if (key === 'last_sync_at') {
+    return t('sync_history.metric_last_sync_at', { time: formatSyncTimestamp(value) });
+  }
+  return t(`sync_history.metric_${key}`, { count: fmtNumber(value) });
+}
+
+function syncHistorySummaryLines(run) {
+  const summary = run?.summary && typeof run.summary === 'object' ? run.summary : {};
+  if (run.sync_type === 'user_agents') {
+    return [t('sync_history.summary_user_agents', {
+      count: fmtNumber(summary.total_user_agents || 0),
+      backfilled: fmtNumber(summary.backfilled_heartbeats || 0),
+    })];
+  }
+
+  const start = summary.start_date || '—';
+  const end = summary.end_date || start;
+  return [
+    t('sync_history.summary_heartbeat_window', { start, end }),
+    t('sync_history.summary_heartbeat_counts', {
+      dates: fmtNumber(summary.date_count || 0),
+      fetched: fmtNumber(summary.fetched || 0),
+      inserted: fmtNumber(summary.inserted || 0),
+      updated: fmtNumber(summary.updated || 0),
+    }),
+  ];
+}
+
+function renderSyncHistory(runs) {
+  if (!syncHistoryListEl) {
+    return;
+  }
+
+  syncHistoryRuns = Array.isArray(runs) ? runs : [];
+  if (!syncHistoryRuns.length) {
+    syncHistoryListEl.innerHTML = `<div class="calendar-hover-empty">${t('sync_history.empty')}</div>`;
+    return;
+  }
+
+  syncHistoryListEl.innerHTML = syncHistoryRuns.map((run, index) => {
+    const summaryLines = syncHistorySummaryLines(run)
+      .map((line) => `<div class="sync-history-summary-line">${escapeHtml(line)}</div>`)
+      .join('');
+    const stepItems = Array.isArray(run.steps) ? run.steps.map((step) => {
+      const details = step?.details && typeof step.details === 'object' ? step.details : {};
+      const detailKeys = ['pages', 'fetched', 'inserted', 'updated', 'total_user_agents', 'backfilled_heartbeats', 'last_sync_at'];
+      const metrics = detailKeys
+        .map((key) => syncHistoryMetricText(key, details[key]))
+        .filter(Boolean)
+        .map((text) => `<span class="sync-history-step-metric">${escapeHtml(text)}</span>`)
+        .join('');
+      const errorHtml = step.error_message
+        ? `<div class="sync-history-run-error">${escapeHtml(t('sync_history.error', { error: step.error_message }))}</div>`
+        : '';
+      return `
+        <div class="sync-history-step-row">
+          <div class="sync-history-step-top">
+            <span class="sync-history-step-name">${escapeHtml(syncHistoryStepLabel(step))}</span>
+            <span class="sync-history-step-duration">${escapeHtml(formatDurationMs(step.duration_ms))}</span>
+          </div>
+          <div class="sync-history-step-meta">${metrics}</div>
+          ${errorHtml}
+        </div>
+      `;
+    }).join('') : '';
+
+    const errorHtml = run.error_message
+      ? `<div class="sync-history-run-error">${escapeHtml(t('sync_history.error', { error: run.error_message }))}</div>`
+      : '';
+
+    return `
+      <details class="sync-history-run" ${index === 0 ? 'open' : ''}>
+        <summary class="sync-history-run-summary">
+          <div class="sync-history-run-main">
+            <div class="sync-history-run-title-row">
+              <span class="sync-history-run-title">${escapeHtml(syncHistoryTypeLabel(run.sync_type))}</span>
+              <span class="sync-history-run-status is-${escapeHtml(run.status)}">${escapeHtml(syncHistoryStatusLabel(run.status))}</span>
+            </div>
+            <div class="sync-history-run-meta">
+              <span>${escapeHtml(t('sync_history.started_at', { time: formatSyncTimestamp(run.started_at) }))}</span>
+              <span>${escapeHtml(t('sync_history.trigger', { trigger: syncHistoryTriggerLabel(run.trigger_source) }))}</span>
+              <span>${escapeHtml(t('sync_history.duration', { duration: formatDurationMs(run.duration_ms) }))}</span>
+            </div>
+            <div class="sync-history-summary">${summaryLines}</div>
+          </div>
+        </summary>
+        <div class="sync-history-run-body">
+          ${errorHtml}
+          <div class="sync-history-steps">${stepItems}</div>
+        </div>
+      </details>
+    `;
+  }).join('');
+}
+
+async function loadSyncHistory() {
+  if (!syncHistoryListEl) {
+    return;
+  }
+
+  try {
+    const data = await fetchJson('/api/sync/history?limit=12');
+    renderSyncHistory(data.runs || []);
+  } catch {
+    syncHistoryRuns = [];
+    syncHistoryListEl.innerHTML = `<div class="calendar-hover-empty">${t('sync_history.load_error')}</div>`;
+  }
+}
+
 function ensureSyncRangeDefaults() {
   if (!syncStartDateEl || !syncEndDateEl) {
     return;
@@ -846,7 +1084,10 @@ async function runSyncRange() {
     await fetchJson(`/api/sync/range?${params.toString()}`, { method: 'POST' });
     dailyBreakdownCache.clear();
     await loadState();
-    await loadStats();
+    await loadSyncHistory();
+    if (pageType !== 'sync-history') {
+      await loadStats();
+    }
   } catch (err) {
     alert(t('sync.error_prefix', { error: err }));
   } finally {
@@ -860,7 +1101,8 @@ async function runUserAgentRefresh() {
   try {
     const result = await fetchJson('/api/sync/user-agents', { method: 'POST' });
     dailyBreakdownCache.clear();
-    if (pageType !== 'project-mappings') {
+    await loadSyncHistory();
+    if (pageType !== 'project-mappings' && pageType !== 'sync-history') {
       await loadStats();
     }
     alert(t('sync.user_agents_success', {
@@ -1967,11 +2209,14 @@ applyTranslations();
 renderCalendarSkeleton(currentMonth);
 loadHealth();
 loadState();
+if (pageType === 'sync-history') {
+  loadSyncHistory();
+}
 if (pageType === 'project-mappings') {
   loadProjectMappingOptions();
   loadProjectMappings();
   loadEditorMappingOptions();
   loadEditorMappings();
-} else {
+} else if (pageType !== 'sync-history') {
   loadStats();
 }

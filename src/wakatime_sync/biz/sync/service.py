@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from time import perf_counter
 from typing import Any
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from loguru import logger
 from tortoise.transactions import in_transaction
 
 from wakatime_sync.biz.wakatime.client import WakaTimeClient
-from wakatime_sync.sys.db import Heartbeat, SyncState, UserAgent
+from wakatime_sync.sys.db import Heartbeat, SyncRun, SyncRunStep, SyncState, UserAgent
+
+StepOperation = Callable[[], Awaitable[Any]]
 
 
 @dataclass
@@ -26,6 +31,20 @@ class UserAgentRefreshResult:
     backfilled_heartbeats: int
 
 
+@dataclass
+class DateSyncResult:
+    fetched: int
+    inserted: int
+    updated: int
+    pages: int
+
+
+@dataclass
+class UserAgentFetchResult:
+    items: list[dict[str, Any]]
+    pages: int
+
+
 class SyncService:
     def __init__(
         self,
@@ -39,7 +58,7 @@ class SyncService:
         self.page_limit = page_limit
         self.timezone = ZoneInfo(timezone_name)
 
-    async def sync_recent(self) -> SyncResult:
+    async def sync_recent(self, trigger: str = "manual") -> SyncResult:
         today = datetime.now(self.timezone).date()
         if today.weekday() == 0:
             last_friday = today - timedelta(days=3)
@@ -49,9 +68,9 @@ class SyncService:
             ]
         else:
             dates = [(today - timedelta(days=i)).isoformat() for i in range(self.lookback_days)]
-        return await self.sync_dates(dates)
+        return await self.sync_dates(dates, sync_type="heartbeat_recent", trigger=trigger)
 
-    async def sync_range(self, start_date: str, end_date: str) -> SyncResult:
+    async def sync_range(self, start_date: str, end_date: str, trigger: str = "manual") -> SyncResult:
         start = datetime.fromisoformat(start_date).date()
         end = datetime.fromisoformat(end_date).date()
         if start > end:
@@ -61,72 +80,194 @@ class SyncService:
         while current <= end:
             dates.append(current.isoformat())
             current += timedelta(days=1)
-        return await self.sync_dates(dates)
+        return await self.sync_dates(dates, sync_type="heartbeat_range", trigger=trigger)
 
-    async def sync_dates(self, dates: list[str]) -> SyncResult:
+    async def sync_dates(
+        self,
+        dates: list[str],
+        *,
+        sync_type: str = "heartbeat_range",
+        trigger: str = "manual",
+    ) -> SyncResult:
+        run = await self._create_sync_run(
+            sync_type,
+            trigger,
+            {
+                "dates": dates,
+                "date_count": len(dates),
+                "start_date": dates[0] if dates else None,
+                "end_date": dates[-1] if dates else None,
+            },
+        )
         fetched = 0
         inserted = 0
         updated = 0
 
-        editor_by_user_agent_id = await self._load_user_agent_editor_map()
+        try:
+            editor_by_user_agent_id = await self._record_step(
+                run,
+                1,
+                "load_user_agent_editor_map",
+                self._load_user_agent_editor_map,
+                details_factory=lambda data: {"total_user_agents": len(data)},
+            )
 
-        for d in dates:
-            page = 1
-            while page <= self.page_limit:
-                payload = await self.client.get_heartbeats(d, page=page)
-                items = payload.get("data", [])
-                if not items:
-                    break
+            step_order = 2
+            for d in dates:
+                async def sync_date_operation(sync_date: str = d) -> DateSyncResult:
+                    return await self._sync_date(sync_date, editor_by_user_agent_id)
 
-                f, i, u = await self._upsert_heartbeats(items, editor_by_user_agent_id)
-                fetched += f
-                inserted += i
-                updated += u
+                date_result = await self._record_step(
+                    run,
+                    step_order,
+                    "sync_date",
+                    sync_date_operation,
+                    details={"date": d},
+                    details_factory=lambda result: {
+                        "fetched": result.fetched,
+                        "inserted": result.inserted,
+                        "updated": result.updated,
+                        "pages": result.pages,
+                    },
+                )
+                fetched += date_result.fetched
+                inserted += date_result.inserted
+                updated += date_result.updated
+                step_order += 1
 
-                next_page = payload.get("next_page")
-                if not next_page:
-                    break
-                page = self._next_page_number(next_page, page)
+            last_sync_at = datetime.now(self.timezone)
+            await self._record_step(
+                run,
+                step_order,
+                "update_last_sync_state",
+                lambda: self._set_last_sync(last_sync_at),
+                details={"last_sync_at": last_sync_at.isoformat()},
+            )
 
-        await self._set_last_sync(datetime.now(self.timezone))
-        logger.info(
-            "sync finished dates={} fetched={} inserted={} updated={}",
-            dates,
-            fetched,
-            inserted,
-            updated,
-        )
-        return SyncResult(dates=dates, fetched=fetched, inserted=inserted, updated=updated)
+            result = SyncResult(dates=dates, fetched=fetched, inserted=inserted, updated=updated)
+            await self._finish_sync_run(
+                run,
+                status="success",
+                summary={
+                    "date_count": len(dates),
+                    "start_date": dates[0] if dates else None,
+                    "end_date": dates[-1] if dates else None,
+                    "fetched": fetched,
+                    "inserted": inserted,
+                    "updated": updated,
+                },
+            )
+            logger.info(
+                "sync finished dates={} fetched={} inserted={} updated={}",
+                dates,
+                fetched,
+                inserted,
+                updated,
+            )
+            return result
+        except Exception as exc:
+            await self._finish_sync_run(
+                run,
+                status="failed",
+                summary={
+                    "date_count": len(dates),
+                    "start_date": dates[0] if dates else None,
+                    "end_date": dates[-1] if dates else None,
+                    "fetched": fetched,
+                    "inserted": inserted,
+                    "updated": updated,
+                },
+                error_message=str(exc),
+            )
+            raise
 
     async def refresh_user_agents(
-        self, backfill_heartbeats: bool = False
+        self,
+        backfill_heartbeats: bool = False,
+        trigger: str = "manual",
     ) -> UserAgentRefreshResult:
-        items = await self._fetch_user_agents()
-        if not items:
-            existing = await self._load_user_agent_editor_map()
-            return UserAgentRefreshResult(
-                total_user_agents=len(existing),
-                backfilled_heartbeats=0,
-            )
-
-        await self._upsert_user_agents(items)
-        editor_by_user_agent_id = self._build_editor_map(items)
-        backfilled = 0
-
-        if backfill_heartbeats and editor_by_user_agent_id:
-            backfilled = await self.backfill_missing_editors(editor_by_user_agent_id)
-            logger.info(
-                "user agent refresh completed count={} backfilled={}",
-                len(editor_by_user_agent_id),
-                backfilled,
-            )
-        else:
-            logger.info("user agent refresh completed count={}", len(editor_by_user_agent_id))
-
-        return UserAgentRefreshResult(
-            total_user_agents=len(editor_by_user_agent_id),
-            backfilled_heartbeats=backfilled,
+        run = await self._create_sync_run(
+            "user_agents",
+            trigger,
+            {"backfill_heartbeats": backfill_heartbeats},
         )
+
+        try:
+            fetch_result = await self._record_step(
+                run,
+                1,
+                "fetch_user_agents",
+                self._fetch_user_agents,
+                details_factory=lambda result: {
+                    "total_user_agents": len(result.items),
+                    "pages": result.pages,
+                },
+            )
+
+            if not fetch_result.items:
+                existing = await self._record_step(
+                    run,
+                    2,
+                    "load_existing_user_agent_editor_map",
+                    self._load_user_agent_editor_map,
+                    details_factory=lambda data: {"total_user_agents": len(data)},
+                )
+                result = UserAgentRefreshResult(
+                    total_user_agents=len(existing),
+                    backfilled_heartbeats=0,
+                )
+                await self._finish_sync_run(
+                    run,
+                    status="success",
+                    summary={
+                        "total_user_agents": result.total_user_agents,
+                        "backfilled_heartbeats": result.backfilled_heartbeats,
+                    },
+                )
+                return result
+
+            await self._record_step(
+                run,
+                2,
+                "upsert_user_agents",
+                lambda: self._upsert_user_agents(fetch_result.items),
+                details={"total_user_agents": len(fetch_result.items)},
+            )
+            editor_by_user_agent_id = self._build_editor_map(fetch_result.items)
+            backfilled = 0
+
+            if backfill_heartbeats and editor_by_user_agent_id:
+                backfilled = await self._record_step(
+                    run,
+                    3,
+                    "backfill_missing_editors",
+                    lambda: self.backfill_missing_editors(editor_by_user_agent_id),
+                    details_factory=lambda count: {"backfilled_heartbeats": count},
+                )
+                logger.info(
+                    "user agent refresh completed count={} backfilled={}",
+                    len(editor_by_user_agent_id),
+                    backfilled,
+                )
+            else:
+                logger.info("user agent refresh completed count={}", len(editor_by_user_agent_id))
+
+            result = UserAgentRefreshResult(
+                total_user_agents=len(editor_by_user_agent_id),
+                backfilled_heartbeats=backfilled,
+            )
+            await self._finish_sync_run(
+                run,
+                status="success",
+                summary={
+                    "total_user_agents": result.total_user_agents,
+                    "backfilled_heartbeats": result.backfilled_heartbeats,
+                },
+            )
+            return result
+        except Exception as exc:
+            await self._finish_sync_run(run, status="failed", error_message=str(exc))
+            raise
 
     async def backfill_missing_editors(self, editor_by_user_agent_id: dict[str, str]) -> int:
         if not editor_by_user_agent_id:
@@ -147,9 +288,10 @@ class SyncService:
 
         return updated
 
-    async def _fetch_user_agents(self) -> list[dict[str, Any]]:
+    async def _fetch_user_agents(self) -> UserAgentFetchResult:
         items: list[dict[str, Any]] = []
         page = 1
+        pages = 0
 
         while page <= self.page_limit:
             payload = await self.client.get_user_agents(page=page)
@@ -157,6 +299,7 @@ class SyncService:
             if not page_items:
                 break
 
+            pages += 1
             items.extend(item for item in page_items if isinstance(item, dict))
 
             next_page = payload.get("next_page")
@@ -164,7 +307,7 @@ class SyncService:
                 break
             page = self._next_page_number(next_page, page)
 
-        return items
+        return UserAgentFetchResult(items=items, pages=pages)
 
     async def _upsert_user_agents(self, items: list[dict[str, Any]]) -> None:
         async with in_transaction():
@@ -199,6 +342,36 @@ class SyncService:
             for row in rows
             if row.get("id") and row.get("editor")
         }
+
+    async def _sync_date(
+        self,
+        sync_date: str,
+        editor_by_user_agent_id: dict[str, str],
+    ) -> DateSyncResult:
+        fetched = 0
+        inserted = 0
+        updated = 0
+        page = 1
+        pages = 0
+
+        while page <= self.page_limit:
+            payload = await self.client.get_heartbeats(sync_date, page=page)
+            items = payload.get("data", [])
+            if not items:
+                break
+
+            pages += 1
+            f, i, u = await self._upsert_heartbeats(items, editor_by_user_agent_id)
+            fetched += f
+            inserted += i
+            updated += u
+
+            next_page = payload.get("next_page")
+            if not next_page:
+                break
+            page = self._next_page_number(next_page, page)
+
+        return DateSyncResult(fetched=fetched, inserted=inserted, updated=updated, pages=pages)
 
     async def _upsert_heartbeats(
         self,
@@ -304,3 +477,88 @@ class SyncService:
         if state is None:
             return None
         return state.value
+
+    async def _create_sync_run(
+        self,
+        sync_type: str,
+        trigger: str,
+        request_payload: dict[str, Any] | None = None,
+    ) -> SyncRun:
+        started_at = datetime.now(self.timezone)
+        return await SyncRun.create(
+            id=str(uuid4()),
+            sync_type=sync_type,
+            trigger_source=trigger,
+            status="running",
+            request_payload=request_payload,
+            started_at=started_at,
+        )
+
+    async def _finish_sync_run(
+        self,
+        run: SyncRun,
+        *,
+        status: str,
+        summary: dict[str, Any] | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        finished_at = datetime.now(self.timezone)
+        duration_ms = max(1, int((finished_at - run.started_at).total_seconds() * 1000))
+        await SyncRun.filter(id=run.id).update(
+            status=status,
+            summary=summary,
+            error_message=error_message,
+            finished_at=finished_at,
+            duration_ms=duration_ms,
+        )
+
+    async def _record_step(
+        self,
+        run: SyncRun,
+        step_order: int,
+        step_key: str,
+        operation: StepOperation,
+        *,
+        details: dict[str, Any] | None = None,
+        details_factory: Callable[[Any], dict[str, Any] | None] | None = None,
+    ) -> Any:
+        started_at = datetime.now(self.timezone)
+        started_monotonic = perf_counter()
+        payload = dict(details or {})
+
+        try:
+            result = await operation()
+        except Exception as exc:
+            finished_at = datetime.now(self.timezone)
+            duration_ms = max(1, int((perf_counter() - started_monotonic) * 1000))
+            await SyncRunStep.create(
+                run=run,
+                step_order=step_order,
+                step_key=step_key,
+                status="failed",
+                details=payload or None,
+                error_message=str(exc),
+                started_at=started_at,
+                finished_at=finished_at,
+                duration_ms=duration_ms,
+            )
+            raise
+
+        if details_factory is not None:
+            extra = details_factory(result)
+            if extra:
+                payload.update(extra)
+
+        finished_at = datetime.now(self.timezone)
+        duration_ms = max(1, int((perf_counter() - started_monotonic) * 1000))
+        await SyncRunStep.create(
+            run=run,
+            step_order=step_order,
+            step_key=step_key,
+            status="success",
+            details=payload or None,
+            started_at=started_at,
+            finished_at=finished_at,
+            duration_ms=duration_ms,
+        )
+        return result

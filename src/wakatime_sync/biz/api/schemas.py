@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -22,6 +24,34 @@ class SyncStateResponse(BaseModel):
 class UserAgentRefreshResponse(BaseModel):
     total_user_agents: int
     backfilled_heartbeats: int
+
+
+class SyncRunStepResponse(BaseModel):
+    step_key: str
+    status: str
+    started_at: str
+    finished_at: str | None
+    duration_ms: int | None
+    details: dict[str, Any] | None = None
+    error_message: str | None = None
+
+
+class SyncHistoryItemResponse(BaseModel):
+    id: str
+    sync_type: str
+    trigger_source: str
+    status: str
+    started_at: str
+    finished_at: str | None
+    duration_ms: int | None
+    request_payload: dict[str, Any] | None = None
+    summary: dict[str, Any] | None = None
+    error_message: str | None = None
+    steps: list[SyncRunStepResponse]
+
+
+class SyncHistoryResponse(BaseModel):
+    runs: list[SyncHistoryItemResponse]
 
 
 class DebugDbResponse(BaseModel):

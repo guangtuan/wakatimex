@@ -42,7 +42,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         timezone_name=settings.app_timezone,
     )
     try:
-        refresh_result = await sync_service.refresh_user_agents(backfill_heartbeats=False)
+        refresh_result = await sync_service.refresh_user_agents(
+            backfill_heartbeats=False,
+            trigger="startup",
+        )
         logger.info("warmed user agent mappings count={}", refresh_result.total_user_agents)
     except Exception:
         logger.exception("failed to warm user agent mappings during startup")
