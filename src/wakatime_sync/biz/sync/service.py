@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -18,6 +18,12 @@ class SyncResult:
     fetched: int
     inserted: int
     updated: int
+
+
+@dataclass
+class UserAgentRefreshResult:
+    total_user_agents: int
+    backfilled_heartbeats: int
 
 
 class SyncService:
@@ -62,12 +68,7 @@ class SyncService:
         inserted = 0
         updated = 0
 
-        editor_by_user_agent_id: dict[str, str] = {}
-        try:
-            editor_by_user_agent_id = await self.refresh_user_agents(backfill_heartbeats=True)
-        except Exception:
-            logger.exception("failed to refresh user agents before heartbeat sync")
-            editor_by_user_agent_id = await self._load_user_agent_editor_map()
+        editor_by_user_agent_id = await self._load_user_agent_editor_map()
 
         for d in dates:
             page = 1
@@ -97,13 +98,20 @@ class SyncService:
         )
         return SyncResult(dates=dates, fetched=fetched, inserted=inserted, updated=updated)
 
-    async def refresh_user_agents(self, backfill_heartbeats: bool = False) -> dict[str, str]:
+    async def refresh_user_agents(
+        self, backfill_heartbeats: bool = False
+    ) -> UserAgentRefreshResult:
         items = await self._fetch_user_agents()
         if not items:
-            return await self._load_user_agent_editor_map()
+            existing = await self._load_user_agent_editor_map()
+            return UserAgentRefreshResult(
+                total_user_agents=len(existing),
+                backfilled_heartbeats=0,
+            )
 
         await self._upsert_user_agents(items)
         editor_by_user_agent_id = self._build_editor_map(items)
+        backfilled = 0
 
         if backfill_heartbeats and editor_by_user_agent_id:
             backfilled = await self.backfill_missing_editors(editor_by_user_agent_id)
@@ -115,7 +123,10 @@ class SyncService:
         else:
             logger.info("user agent refresh completed count={}", len(editor_by_user_agent_id))
 
-        return editor_by_user_agent_id
+        return UserAgentRefreshResult(
+            total_user_agents=len(editor_by_user_agent_id),
+            backfilled_heartbeats=backfilled,
+        )
 
     async def backfill_missing_editors(self, editor_by_user_agent_id: dict[str, str]) -> int:
         if not editor_by_user_agent_id:

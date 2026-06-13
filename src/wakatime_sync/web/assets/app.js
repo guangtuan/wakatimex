@@ -1,6 +1,7 @@
 const versionEl = document.getElementById('version');
 const lastSyncEl = document.getElementById('last-sync');
 const syncRangeBtn = document.getElementById('sync-range-btn');
+const syncUserAgentsBtn = document.getElementById('sync-user-agents-btn');
 const syncStartDateEl = document.getElementById('sync-start-date');
 const syncEndDateEl = document.getElementById('sync-end-date');
 const todayActiveEl = document.getElementById('today-active');
@@ -230,12 +231,15 @@ const I18N = {
     sync: {
       title: 'Sync Data',
       description: 'Manually trigger a sync to fetch heartbeats from WakaTime',
+      user_agents: 'User Agents',
       from: 'From',
       to: 'To',
       run_range: 'Sync',
+      syncing_user_agents: 'Refreshing...',
       syncing: 'Syncing...',
       syncing_range: 'Syncing...',
       invalid_range: 'Please choose both start and end dates.',
+      user_agents_success: 'User agents refreshed: {count}, backfilled: {backfilled}',
       error_prefix: 'Error: {error}',
       stats_error: 'Stats error: {error}',
     },
@@ -379,12 +383,15 @@ const I18N = {
     sync: {
       title: '同步数据',
       description: '手动触发同步，从 WakaTime 获取心跳数据',
+      user_agents: 'User Agents',
       from: '从',
       to: '到',
       run_range: '同步',
+      syncing_user_agents: '刷新中…',
       syncing: '同步中…',
       syncing_range: '同步中…',
       invalid_range: '请选择开始和结束日期。',
+      user_agents_success: 'User Agent 已刷新：{count}，回填心跳：{backfilled}',
       error_prefix: '错误：{error}',
       stats_error: '统计加载失败：{error}',
     },
@@ -717,11 +724,12 @@ function ensureSyncRangeDefaults() {
 }
 
 function setSyncLoadingState(isLoading, rangeMode = false) {
-  if (!syncRangeBtn || !syncStartDateEl || !syncEndDateEl) {
+  if (!syncRangeBtn || !syncUserAgentsBtn || !syncStartDateEl || !syncEndDateEl) {
     return;
   }
 
   syncRangeBtn.disabled = isLoading;
+  syncUserAgentsBtn.disabled = isLoading;
   syncStartDateEl.disabled = isLoading;
   syncEndDateEl.disabled = isLoading;
 
@@ -733,6 +741,27 @@ function setSyncLoadingState(isLoading, rangeMode = false) {
 
   if (syncRangeBtn.dataset.originalHtml) {
     syncRangeBtn.innerHTML = syncRangeBtn.dataset.originalHtml;
+  }
+}
+
+function setUserAgentRefreshLoadingState(isLoading) {
+  if (!syncUserAgentsBtn || !syncRangeBtn || !syncStartDateEl || !syncEndDateEl) {
+    return;
+  }
+
+  syncUserAgentsBtn.disabled = isLoading;
+  syncRangeBtn.disabled = isLoading;
+  syncStartDateEl.disabled = isLoading;
+  syncEndDateEl.disabled = isLoading;
+
+  if (isLoading) {
+    syncUserAgentsBtn.dataset.originalHtml = syncUserAgentsBtn.dataset.originalHtml || syncUserAgentsBtn.innerHTML;
+    syncUserAgentsBtn.textContent = t('sync.syncing_user_agents');
+    return;
+  }
+
+  if (syncUserAgentsBtn.dataset.originalHtml) {
+    syncUserAgentsBtn.innerHTML = syncUserAgentsBtn.dataset.originalHtml;
   }
 }
 
@@ -758,6 +787,26 @@ async function runSyncRange() {
     alert(t('sync.error_prefix', { error: err }));
   } finally {
     setSyncLoadingState(false);
+  }
+}
+
+async function runUserAgentRefresh() {
+  setUserAgentRefreshLoadingState(true);
+
+  try {
+    const result = await fetchJson('/api/sync/user-agents', { method: 'POST' });
+    dailyBreakdownCache.clear();
+    if (pageType !== 'project-mappings') {
+      await loadStats();
+    }
+    alert(t('sync.user_agents_success', {
+      count: result.total_user_agents,
+      backfilled: result.backfilled_heartbeats,
+    }));
+  } catch (err) {
+    alert(t('sync.error_prefix', { error: err }));
+  } finally {
+    setUserAgentRefreshLoadingState(false);
   }
 }
 
@@ -1597,6 +1646,9 @@ if (langZhBtn) {
 ensureSyncRangeDefaults();
 if (syncRangeBtn) {
   syncRangeBtn.addEventListener('click', runSyncRange);
+}
+if (syncUserAgentsBtn) {
+  syncUserAgentsBtn.addEventListener('click', runUserAgentRefresh);
 }
 
 if (projectMappingFormEl) {

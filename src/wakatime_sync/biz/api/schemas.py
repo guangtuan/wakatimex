@@ -19,6 +19,11 @@ class SyncStateResponse(BaseModel):
     last_sync_at: str | None
 
 
+class UserAgentRefreshResponse(BaseModel):
+    total_user_agents: int
+    backfilled_heartbeats: int
+
+
 class DebugDbResponse(BaseModel):
     ok: bool
     env: str

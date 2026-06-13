@@ -22,6 +22,7 @@ from wakatime_sync.biz.api.schemas import (
     StatsHourlyResponse,
     SyncRunResponse,
     SyncStateResponse,
+    UserAgentRefreshResponse,
 )
 from wakatime_sync.biz.stats.service import (
     load_heartbeats,
@@ -72,6 +73,15 @@ def build_api_router() -> APIRouter:
     async def sync_state(request: Request) -> SyncStateResponse:
         sync_service = request.app.state.sync_service
         return SyncStateResponse(last_sync_at=await sync_service.get_last_sync())
+
+    @router.post("/api/sync/user-agents", response_model=UserAgentRefreshResponse)
+    async def refresh_user_agents(request: Request) -> UserAgentRefreshResponse:
+        sync_service = request.app.state.sync_service
+        result = await sync_service.refresh_user_agents(backfill_heartbeats=True)
+        return UserAgentRefreshResponse(
+            total_user_agents=result.total_user_agents,
+            backfilled_heartbeats=result.backfilled_heartbeats,
+        )
 
     @router.get("/api/stats/daily", response_model=StatsDailyResponse)
     async def stats_daily(start: str | None = None, end: str | None = None) -> StatsDailyResponse:
