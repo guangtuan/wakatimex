@@ -1147,6 +1147,10 @@ button.calendar-cell {
   gap: 20px;
 }
 
+.editor-mappings-layout {
+  margin-top: 20px;
+}
+
 .project-mapping-form,
 .project-mapping-list {
   display: flex;
@@ -1172,6 +1176,7 @@ button.calendar-cell {
   background: var(--bg-tertiary);
   color: var(--text-primary);
   font: inherit;
+  appearance: none;
 }
 
 .project-mapping-input:focus {

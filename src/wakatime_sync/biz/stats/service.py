@@ -6,7 +6,9 @@ from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import TypedDict
 from zoneinfo import ZoneInfo
 
-from wakatime_sync.sys.db import Heartbeat, ProjectMapping, UserAgent
+from tortoise.functions import Count
+
+from wakatime_sync.sys.db import EditorMapping, Heartbeat, ProjectMapping, UserAgent
 
 # WakaTime official timeout: if gap between two consecutive heartbeats
 # exceeds this value, the interval is NOT counted as coding time.
@@ -74,6 +76,68 @@ async def load_project_mappings() -> dict[str, str]:
         for row in rows
         if row.get("source_project") and row.get("target_project")
     }
+
+
+async def load_editor_mappings() -> dict[str, str]:
+    rows = await EditorMapping.all().values("source_editor", "target_editor")
+    return {
+        str(row["source_editor"]): str(row["target_editor"])
+        for row in rows
+        if row.get("source_editor") and row.get("target_editor")
+    }
+
+
+class MappingOptionRow(TypedDict):
+    name: str
+    count: int
+
+
+async def load_project_options() -> list[MappingOptionRow]:
+    rows = (
+        await Heartbeat.exclude(project=None)
+        .exclude(project="")
+        .annotate(total=Count("id"))
+        .group_by("project")
+        .values("project", "total")
+    )
+    data = [
+        {"name": str(row["project"]).strip(), "count": int(row["total"])}
+        for row in rows
+        if row.get("project") and str(row["project"]).strip()
+    ]
+    data.sort(key=lambda item: (-item["count"], item["name"].lower()))
+    return data
+
+
+async def load_editor_options() -> list[MappingOptionRow]:
+    heartbeat_rows = (
+        await Heartbeat.exclude(editor=None)
+        .exclude(editor="")
+        .annotate(total=Count("id"))
+        .group_by("editor")
+        .values("editor", "total")
+    )
+    user_agent_rows = (
+        await UserAgent.exclude(editor=None)
+        .exclude(editor="")
+        .annotate(total=Count("id"))
+        .group_by("editor")
+        .values("editor", "total")
+    )
+
+    counts: dict[str, int] = defaultdict(int)
+    for row in heartbeat_rows:
+        name = str(row.get("editor") or "").strip()
+        if name:
+            counts[name] += int(row.get("total") or 0)
+    for row in user_agent_rows:
+        name = str(row.get("editor") or "").strip()
+        if name:
+            counts[name] += int(row.get("total") or 0)
+
+    data = [{"name": name, "count": count} for name, count in counts.items()]
+    data.sort(key=lambda item: (-item["count"], item["name"].lower()))
+    return data
 
 
 def to_day(ts: float, timezone: tzinfo = UTC) -> str:
@@ -149,12 +213,13 @@ def summarize_breakdown(
     limit: int,
     user_agent_editors: dict[str, str] | None = None,
     project_mappings: dict[str, str] | None = None,
+    editor_mappings: dict[str, str] | None = None,
 ) -> list[BreakdownRow]:
     by_key_times: dict[str, list[float]] = defaultdict(list)
     by_key_count: dict[str, int] = defaultdict(int)
 
     for hb in rows:
-        name = _breakdown_name(hb, key, user_agent_editors, project_mappings)
+        name = _breakdown_name(hb, key, user_agent_editors, project_mappings, editor_mappings)
         by_key_count[name] += 1
         by_key_times[name].append(hb.time)
 
@@ -224,6 +289,7 @@ def summarize_hourly(
     rows: list[Heartbeat],
     timezone: tzinfo = UTC,
     user_agent_editors: dict[str, str] | None = None,
+    editor_mappings: dict[str, str] | None = None,
 ) -> list[HourlyRow]:
     by_hour_count: dict[int, int] = defaultdict(int)
     by_hour_seconds: dict[int, int] = defaultdict(int)
@@ -242,7 +308,7 @@ def summarize_hourly(
 
         cursor = datetime.fromtimestamp(current.time, timezone)
         end_dt = datetime.fromtimestamp(nxt.time, timezone)
-        editor_name = _breakdown_name(current, "editor", user_agent_editors, None)
+        editor_name = _breakdown_name(current, "editor", user_agent_editors, None, editor_mappings)
 
         while cursor < end_dt:
             hour_start = cursor.replace(minute=0, second=0, microsecond=0)
@@ -284,6 +350,7 @@ def _breakdown_name(
     key: str,
     user_agent_editors: dict[str, str] | None,
     project_mappings: dict[str, str] | None,
+    editor_mappings: dict[str, str] | None,
 ) -> str:
     if key == "project":
         project = str(hb.project).strip() if hb.project else ""
@@ -296,17 +363,20 @@ def _breakdown_name(
         value = getattr(hb, key)
         return str(value) if value else "Unknown"
 
-    if hb.editor:
-        return hb.editor
+    editor = hb.editor.strip() if hb.editor else ""
+    if not editor:
+        raw_data = hb.raw_data if isinstance(hb.raw_data, dict) else {}
+        user_agent_id = raw_data.get("user_agent_id") if isinstance(raw_data, dict) else None
+        if user_agent_id and user_agent_editors:
+            mapped_editor = user_agent_editors.get(str(user_agent_id))
+            if mapped_editor:
+                editor = mapped_editor.strip()
 
-    raw_data = hb.raw_data if isinstance(hb.raw_data, dict) else {}
-    user_agent_id = raw_data.get("user_agent_id") if isinstance(raw_data, dict) else None
-    if user_agent_id and user_agent_editors:
-        mapped_editor = user_agent_editors.get(str(user_agent_id))
-        if mapped_editor:
-            return mapped_editor
+    if not editor:
+        return "Unknown"
 
-    return "Unknown"
+    mapped_editor = editor_mappings.get(editor) if editor_mappings is not None else None
+    return mapped_editor or editor
 
 
 @dataclass

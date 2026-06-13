@@ -68,6 +68,17 @@ class ProjectMapping(Model):
         table = "project_mapping"
 
 
+class EditorMapping(Model):
+    id = fields.CharField(max_length=64, pk=True)
+    source_editor = fields.CharField(max_length=255, unique=True)
+    target_editor = fields.CharField(max_length=255, index=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "editor_mapping"
+
+
 async def init_db(mysql_dsn: str) -> None:
     await Tortoise.init(
         db_url=mysql_dsn,

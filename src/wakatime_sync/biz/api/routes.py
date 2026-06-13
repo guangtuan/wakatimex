@@ -11,7 +11,12 @@ from wakatime_sync.biz.api.schemas import (
     BreakdownItem,
     DailyStatItem,
     DebugDbResponse,
+    EditorMappingItem,
+    EditorMappingsResponse,
+    EditorMappingUpsertRequest,
     HealthResponse,
+    MappingOptionItem,
+    MappingOptionsResponse,
     HourlyEditorSegment,
     HourlyStatItem,
     ProjectMappingItem,
@@ -26,7 +31,10 @@ from wakatime_sync.biz.api.schemas import (
 )
 from wakatime_sync.biz.stats.service import (
     load_heartbeats,
+    load_editor_mappings,
+    load_editor_options,
     load_project_mappings,
+    load_project_options,
     load_user_agent_editors,
     parse_window,
     summarize_ai_stats,
@@ -35,7 +43,7 @@ from wakatime_sync.biz.stats.service import (
     summarize_hourly,
 )
 from wakatime_sync.sys.config import Settings
-from wakatime_sync.sys.db import Heartbeat, ProjectMapping, SyncState
+from wakatime_sync.sys.db import EditorMapping, Heartbeat, ProjectMapping, SyncState
 from wakatime_sync.sys.version import get_app_version
 
 
@@ -126,12 +134,14 @@ def build_api_router() -> APIRouter:
         rows = await load_heartbeats(window)
         user_agent_editors = await load_user_agent_editors() if by == "editor" else None
         project_mappings = await load_project_mappings() if by == "project" else None
+        editor_mappings = await load_editor_mappings() if by == "editor" else None
         items = summarize_breakdown(
             rows,
             key=by,
             limit=max(1, min(limit, 50)),
             user_agent_editors=user_agent_editors,
             project_mappings=project_mappings,
+            editor_mappings=editor_mappings,
         )
 
         return StatsBreakdownResponse(
@@ -155,7 +165,13 @@ def build_api_router() -> APIRouter:
 
         rows = await load_heartbeats(window)
         user_agent_editors = await load_user_agent_editors()
-        hours = summarize_hourly(rows, window.timezone, user_agent_editors=user_agent_editors)
+        editor_mappings = await load_editor_mappings()
+        hours = summarize_hourly(
+            rows,
+            window.timezone,
+            user_agent_editors=user_agent_editors,
+            editor_mappings=editor_mappings,
+        )
         peak = (
             max(hours, key=lambda item: (item["active_seconds"], item["heartbeats"]))
             if hours
@@ -208,6 +224,11 @@ def build_api_router() -> APIRouter:
         )
         return ProjectMappingsResponse(mappings=[ProjectMappingItem(**row) for row in rows])
 
+    @router.get("/api/project-options", response_model=MappingOptionsResponse)
+    async def project_options() -> MappingOptionsResponse:
+        rows = await load_project_options()
+        return MappingOptionsResponse(options=[MappingOptionItem(**row) for row in rows])
+
     @router.post("/api/project-mappings", response_model=ProjectMappingsResponse)
     async def upsert_project_mapping(
         payload: ProjectMappingUpsertRequest,
@@ -218,6 +239,12 @@ def build_api_router() -> APIRouter:
             raise HTTPException(
                 status_code=400, detail="source_project and target_project are required"
             )
+        if source_project == target_project:
+            raise HTTPException(status_code=400, detail="source_project and target_project must differ")
+
+        project_names = {item["name"] for item in await load_project_options()}
+        if source_project not in project_names or target_project not in project_names:
+            raise HTTPException(status_code=400, detail="project mapping must use existing project names")
 
         existing = await ProjectMapping.get_or_none(source_project=source_project)
         if existing is None:
@@ -237,6 +264,54 @@ def build_api_router() -> APIRouter:
         if not deleted:
             raise HTTPException(status_code=404, detail="project mapping not found")
         return await project_mappings()
+
+    @router.get("/api/editor-mappings", response_model=EditorMappingsResponse)
+    async def editor_mappings() -> EditorMappingsResponse:
+        rows = await EditorMapping.all().order_by("source_editor").values(
+            "source_editor", "target_editor"
+        )
+        return EditorMappingsResponse(mappings=[EditorMappingItem(**row) for row in rows])
+
+    @router.get("/api/editor-options", response_model=MappingOptionsResponse)
+    async def editor_options() -> MappingOptionsResponse:
+        rows = await load_editor_options()
+        return MappingOptionsResponse(options=[MappingOptionItem(**row) for row in rows])
+
+    @router.post("/api/editor-mappings", response_model=EditorMappingsResponse)
+    async def upsert_editor_mapping(
+        payload: EditorMappingUpsertRequest,
+    ) -> EditorMappingsResponse:
+        source_editor = payload.source_editor.strip()
+        target_editor = payload.target_editor.strip()
+        if not source_editor or not target_editor:
+            raise HTTPException(
+                status_code=400, detail="source_editor and target_editor are required"
+            )
+        if source_editor == target_editor:
+            raise HTTPException(status_code=400, detail="source_editor and target_editor must differ")
+
+        editor_names = {item["name"] for item in await load_editor_options()}
+        if source_editor not in editor_names or target_editor not in editor_names:
+            raise HTTPException(status_code=400, detail="editor mapping must use existing editor names")
+
+        existing = await EditorMapping.get_or_none(source_editor=source_editor)
+        if existing is None:
+            await EditorMapping.create(
+                id=sha256(source_editor.encode("utf-8")).hexdigest(),
+                source_editor=source_editor,
+                target_editor=target_editor,
+            )
+        else:
+            await EditorMapping.filter(id=existing.id).update(target_editor=target_editor)
+
+        return await editor_mappings()
+
+    @router.delete("/api/editor-mappings/{source_editor}", response_model=EditorMappingsResponse)
+    async def delete_editor_mapping(source_editor: str) -> EditorMappingsResponse:
+        deleted = await EditorMapping.filter(source_editor=source_editor).delete()
+        if not deleted:
+            raise HTTPException(status_code=404, detail="editor mapping not found")
+        return await editor_mappings()
 
     @router.get("/api/debug/db", response_model=DebugDbResponse)
     async def debug_db() -> DebugDbResponse:

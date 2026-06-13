@@ -40,6 +40,13 @@ const projectMappingSubmitEl = document.getElementById('project-mapping-submit')
 const projectMappingFeedbackEl = document.getElementById('project-mapping-feedback');
 const projectMappingListEl = document.getElementById('project-mapping-list');
 const projectMappingCountEl = document.getElementById('project-mapping-count');
+const editorMappingFormEl = document.getElementById('editor-mapping-form');
+const editorMappingSourceEl = document.getElementById('editor-mapping-source');
+const editorMappingTargetEl = document.getElementById('editor-mapping-target');
+const editorMappingSubmitEl = document.getElementById('editor-mapping-submit');
+const editorMappingFeedbackEl = document.getElementById('editor-mapping-feedback');
+const editorMappingListEl = document.getElementById('editor-mapping-list');
+const editorMappingCountEl = document.getElementById('editor-mapping-count');
 const pageType = document.body?.dataset.page || 'home';
 const APP_TIMEZONE = 'Asia/Shanghai';
 const SECONDS_PER_HOUR = 60 * 60;
@@ -51,6 +58,8 @@ let currentSelectedDate = null;
 let previewRequestToken = 0;
 let cachedCurrentDays = [];
 let cachedPrevMonthDays = [];
+let projectMappingOptions = [];
+let editorMappingOptions = [];
 
 const dailyBreakdownCache = new Map();
 const LANGUAGE_STORAGE_KEY = 'wakatime-sync.lang';
@@ -115,22 +124,47 @@ const I18N = {
       charts_description: 'Open language, project, AI, and ranking panels on a dedicated page.',
     },
     project_mappings: {
-      eyebrow: 'Project Mapping',
-      title: 'Merge renamed folders into one project',
-      description: 'Map a source project name to a target project name. All project charts and daily project breakdowns will aggregate by the target name.',
+      eyebrow: 'Mappings',
+      title: 'Normalize project and editor names',
+      description: 'Merge renamed folders and editor variants into stable names used across charts and breakdowns.',
       form_title: 'Add or update mapping',
       list_title: 'Current mappings',
       source_label: 'Source project',
       target_label: 'Target project',
+      source_placeholder: 'Choose a source project',
+      target_placeholder: 'Choose a target project',
       save: 'Save mapping',
       saving: 'Saving...',
       delete: 'Delete',
       empty: 'No project mappings yet.',
       count: '{count} mappings',
       invalid: 'Please fill in both project names.',
+      invalid_same: 'Source and target project must be different.',
       saved: 'Mapping saved.',
       deleted: 'Mapping deleted.',
       load_error: 'Failed to load mappings.',
+      options_error: 'Failed to load project options.',
+      save_error: 'Failed to save mapping.',
+      delete_error: 'Failed to delete mapping.',
+    },
+    editor_mappings: {
+      form_title: 'Add or update mapping',
+      list_title: 'Current mappings',
+      source_label: 'Source editor',
+      target_label: 'Target editor',
+      source_placeholder: 'Choose a source editor',
+      target_placeholder: 'Choose a target editor',
+      save: 'Save mapping',
+      saving: 'Saving...',
+      delete: 'Delete',
+      empty: 'No editor mappings yet.',
+      count: '{count} mappings',
+      invalid: 'Please fill in both editor names.',
+      invalid_same: 'Source and target editor must be different.',
+      saved: 'Mapping saved.',
+      deleted: 'Mapping deleted.',
+      load_error: 'Failed to load mappings.',
+      options_error: 'Failed to load editor options.',
       save_error: 'Failed to save mapping.',
       delete_error: 'Failed to delete mapping.',
     },
@@ -267,24 +301,49 @@ const I18N = {
       charts_description: '把语言、项目、AI 和排行面板放到独立页面查看。',
     },
     project_mappings: {
-      eyebrow: '项目映射',
-      title: '把重命名后的文件夹归并到同一个项目',
-      description: '把源项目名映射到目标项目名后，项目图表和按天项目统计都会按目标项目聚合。',
+      eyebrow: '映射',
+      title: '统一项目和编辑器名称',
+      description: '把重命名后的文件夹和编辑器别名归并成稳定名称，图表和明细都会按映射后的结果聚合。',
       form_title: '新增或更新映射',
       list_title: '当前映射',
       source_label: '源项目',
       target_label: '目标项目',
+      source_placeholder: '选择源项目',
+      target_placeholder: '选择目标项目',
       save: '保存映射',
       saving: '保存中…',
       delete: '删除',
       empty: '暂时还没有项目映射。',
       count: '{count} 条映射',
       invalid: '请填写源项目和目标项目。',
+      invalid_same: '源项目和目标项目不能相同。',
       saved: '映射已保存。',
       deleted: '映射已删除。',
       load_error: '项目映射加载失败。',
+      options_error: '项目候选项加载失败。',
       save_error: '保存项目映射失败。',
       delete_error: '删除项目映射失败。',
+    },
+    editor_mappings: {
+      form_title: '新增或更新映射',
+      list_title: '当前映射',
+      source_label: '源编辑器',
+      target_label: '目标编辑器',
+      source_placeholder: '选择源编辑器',
+      target_placeholder: '选择目标编辑器',
+      save: '保存映射',
+      saving: '保存中…',
+      delete: '删除',
+      empty: '暂时还没有编辑器映射。',
+      count: '{count} 条映射',
+      invalid: '请填写源编辑器和目标编辑器。',
+      invalid_same: '源编辑器和目标编辑器不能相同。',
+      saved: '映射已保存。',
+      deleted: '映射已删除。',
+      load_error: '编辑器映射加载失败。',
+      options_error: '编辑器候选项加载失败。',
+      save_error: '保存编辑器映射失败。',
+      delete_error: '删除编辑器映射失败。',
     },
     mobile: {
       sync: {
@@ -480,9 +539,14 @@ function setLanguage(lang) {
   currentLang = lang;
   setStoredLanguage(lang);
   applyTranslations();
+  if (pageType === 'project-mappings') {
+    refreshProjectMappingSelects();
+    refreshEditorMappingSelects();
+  }
   void loadState();
   if (pageType === 'project-mappings') {
     void loadProjectMappings();
+    void loadEditorMappings();
   } else {
     void loadStats();
   }
@@ -836,6 +900,75 @@ function setProjectMappingLoadingState(isLoading) {
   }
 }
 
+function setEditorMappingFeedback(messageKey = '', type = '') {
+  if (!editorMappingFeedbackEl) {
+    return;
+  }
+  editorMappingFeedbackEl.textContent = messageKey ? t(messageKey) : '';
+  editorMappingFeedbackEl.dataset.state = type;
+}
+
+function setEditorMappingLoadingState(isLoading) {
+  if (!editorMappingSubmitEl || !editorMappingSourceEl || !editorMappingTargetEl) {
+    return;
+  }
+  editorMappingSubmitEl.disabled = isLoading;
+  editorMappingSourceEl.disabled = isLoading;
+  editorMappingTargetEl.disabled = isLoading;
+  if (isLoading) {
+    editorMappingSubmitEl.dataset.originalHtml = editorMappingSubmitEl.dataset.originalHtml || editorMappingSubmitEl.innerHTML;
+    editorMappingSubmitEl.textContent = t('editor_mappings.saving');
+    return;
+  }
+  if (editorMappingSubmitEl.dataset.originalHtml) {
+    editorMappingSubmitEl.innerHTML = editorMappingSubmitEl.dataset.originalHtml;
+    delete editorMappingSubmitEl.dataset.originalHtml;
+  }
+}
+
+function updateSelectOptions(selectEl, options, placeholder, preserveValue = '') {
+  if (!selectEl) {
+    return;
+  }
+
+  const safeOptions = Array.isArray(options) ? options : [];
+  const desiredValue = preserveValue || selectEl.value || '';
+  const optionHtml = safeOptions.map((item) => {
+    const name = item?.name || '';
+    const count = Number(item?.count || 0);
+    return `<option value="${escapeHtml(name)}">${escapeHtml(`${name} (${fmtNumber(count)})`)}</option>`;
+  }).join('');
+
+  selectEl.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>${optionHtml}`;
+  selectEl.value = safeOptions.some((item) => item?.name === desiredValue) ? desiredValue : '';
+}
+
+function refreshProjectMappingSelects() {
+  updateSelectOptions(
+    projectMappingSourceEl,
+    projectMappingOptions,
+    t('project_mappings.source_placeholder'),
+  );
+  updateSelectOptions(
+    projectMappingTargetEl,
+    projectMappingOptions,
+    t('project_mappings.target_placeholder'),
+  );
+}
+
+function refreshEditorMappingSelects() {
+  updateSelectOptions(
+    editorMappingSourceEl,
+    editorMappingOptions,
+    t('editor_mappings.source_placeholder'),
+  );
+  updateSelectOptions(
+    editorMappingTargetEl,
+    editorMappingOptions,
+    t('editor_mappings.target_placeholder'),
+  );
+}
+
 function renderProjectMappings(mappings) {
   if (!projectMappingListEl) {
     return;
@@ -886,6 +1019,88 @@ async function loadProjectMappings() {
   }
 }
 
+async function loadProjectMappingOptions() {
+  if (!projectMappingSourceEl || !projectMappingTargetEl) {
+    return;
+  }
+
+  try {
+    const data = await fetchJson('/api/project-options');
+    projectMappingOptions = Array.isArray(data.options) ? data.options : [];
+    refreshProjectMappingSelects();
+  } catch {
+    projectMappingOptions = [];
+    refreshProjectMappingSelects();
+    setProjectMappingFeedback('project_mappings.options_error', 'error');
+  }
+}
+
+function renderEditorMappings(mappings) {
+  if (!editorMappingListEl) {
+    return;
+  }
+
+  const safeMappings = Array.isArray(mappings) ? mappings : [];
+  if (editorMappingCountEl) {
+    editorMappingCountEl.textContent = t('editor_mappings.count', { count: safeMappings.length });
+  }
+
+  if (!safeMappings.length) {
+    editorMappingListEl.innerHTML = `<div class="calendar-hover-empty">${t('editor_mappings.empty')}</div>`;
+    return;
+  }
+
+  editorMappingListEl.innerHTML = safeMappings.map((item) => `
+    <div class="project-mapping-row">
+      <div class="project-mapping-row-copy">
+        <div class="project-mapping-source">${escapeHtml(item.source_editor)}</div>
+        <div class="project-mapping-arrow" aria-hidden="true">→</div>
+        <div class="project-mapping-target">${escapeHtml(item.target_editor)}</div>
+      </div>
+      <div class="project-mapping-row-actions">
+        <button
+          class="nav-sync-btn secondary small"
+          type="button"
+          data-action="delete-editor-mapping"
+          data-source-editor="${escapeHtml(item.source_editor)}"
+        >${t('editor_mappings.delete')}</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadEditorMappings() {
+  if (!editorMappingListEl) {
+    return;
+  }
+
+  try {
+    const data = await fetchJson('/api/editor-mappings');
+    renderEditorMappings(data.mappings || []);
+  } catch {
+    if (editorMappingCountEl) {
+      editorMappingCountEl.textContent = '—';
+    }
+    editorMappingListEl.innerHTML = `<div class="calendar-hover-empty">${t('editor_mappings.load_error')}</div>`;
+  }
+}
+
+async function loadEditorMappingOptions() {
+  if (!editorMappingSourceEl || !editorMappingTargetEl) {
+    return;
+  }
+
+  try {
+    const data = await fetchJson('/api/editor-options');
+    editorMappingOptions = Array.isArray(data.options) ? data.options : [];
+    refreshEditorMappingSelects();
+  } catch {
+    editorMappingOptions = [];
+    refreshEditorMappingSelects();
+    setEditorMappingFeedback('editor_mappings.options_error', 'error');
+  }
+}
+
 async function saveProjectMapping(event) {
   event.preventDefault();
 
@@ -893,6 +1108,10 @@ async function saveProjectMapping(event) {
   const targetProject = projectMappingTargetEl?.value?.trim() || '';
   if (!sourceProject || !targetProject) {
     setProjectMappingFeedback('project_mappings.invalid', 'error');
+    return;
+  }
+  if (sourceProject === targetProject) {
+    setProjectMappingFeedback('project_mappings.invalid_same', 'error');
     return;
   }
 
@@ -911,11 +1130,50 @@ async function saveProjectMapping(event) {
     if (projectMappingFormEl) {
       projectMappingFormEl.reset();
     }
+    refreshProjectMappingSelects();
     setProjectMappingFeedback('project_mappings.saved', 'success');
   } catch {
     setProjectMappingFeedback('project_mappings.save_error', 'error');
   } finally {
     setProjectMappingLoadingState(false);
+  }
+}
+
+async function saveEditorMapping(event) {
+  event.preventDefault();
+
+  const sourceEditor = editorMappingSourceEl?.value?.trim() || '';
+  const targetEditor = editorMappingTargetEl?.value?.trim() || '';
+  if (!sourceEditor || !targetEditor) {
+    setEditorMappingFeedback('editor_mappings.invalid', 'error');
+    return;
+  }
+  if (sourceEditor === targetEditor) {
+    setEditorMappingFeedback('editor_mappings.invalid_same', 'error');
+    return;
+  }
+
+  setEditorMappingFeedback('', '');
+  setEditorMappingLoadingState(true);
+
+  try {
+    const data = await fetchJson('/api/editor-mappings', {
+      method: 'POST',
+      body: JSON.stringify({
+        source_editor: sourceEditor,
+        target_editor: targetEditor,
+      }),
+    });
+    renderEditorMappings(data.mappings || []);
+    if (editorMappingFormEl) {
+      editorMappingFormEl.reset();
+    }
+    refreshEditorMappingSelects();
+    setEditorMappingFeedback('editor_mappings.saved', 'success');
+  } catch {
+    setEditorMappingFeedback('editor_mappings.save_error', 'error');
+  } finally {
+    setEditorMappingLoadingState(false);
   }
 }
 
@@ -925,9 +1183,23 @@ async function deleteProjectMapping(sourceProject) {
       method: 'DELETE',
     });
     renderProjectMappings(data.mappings || []);
+    refreshProjectMappingSelects();
     setProjectMappingFeedback('project_mappings.deleted', 'success');
   } catch {
     setProjectMappingFeedback('project_mappings.delete_error', 'error');
+  }
+}
+
+async function deleteEditorMapping(sourceEditor) {
+  try {
+    const data = await fetchJson(`/api/editor-mappings/${encodeURIComponent(sourceEditor)}`, {
+      method: 'DELETE',
+    });
+    renderEditorMappings(data.mappings || []);
+    refreshEditorMappingSelects();
+    setEditorMappingFeedback('editor_mappings.deleted', 'success');
+  } catch {
+    setEditorMappingFeedback('editor_mappings.delete_error', 'error');
   }
 }
 
@@ -1655,6 +1927,10 @@ if (projectMappingFormEl) {
   projectMappingFormEl.addEventListener('submit', saveProjectMapping);
 }
 
+if (editorMappingFormEl) {
+  editorMappingFormEl.addEventListener('submit', saveEditorMapping);
+}
+
 if (projectMappingListEl) {
   projectMappingListEl.addEventListener('click', (event) => {
     const button = event.target instanceof Element
@@ -1671,12 +1947,31 @@ if (projectMappingListEl) {
   });
 }
 
+if (editorMappingListEl) {
+  editorMappingListEl.addEventListener('click', (event) => {
+    const button = event.target instanceof Element
+      ? event.target.closest('[data-action="delete-editor-mapping"]')
+      : null;
+    if (!button) {
+      return;
+    }
+    const sourceEditor = button.getAttribute('data-source-editor');
+    if (!sourceEditor) {
+      return;
+    }
+    void deleteEditorMapping(sourceEditor);
+  });
+}
+
 applyTranslations();
 renderCalendarSkeleton(currentMonth);
 loadHealth();
 loadState();
 if (pageType === 'project-mappings') {
+  loadProjectMappingOptions();
   loadProjectMappings();
+  loadEditorMappingOptions();
+  loadEditorMappings();
 } else {
   loadStats();
 }

@@ -65,9 +65,9 @@
       <main class="dashboard project-mappings-dashboard">
         <section class="page-head project-mappings-head">
           <div class="page-head-copy">
-            <div class="page-head-eyebrow" data-i18n="project_mappings.eyebrow">Project Mapping</div>
-            <h1 data-i18n="project_mappings.title">Merge renamed folders into one project</h1>
-            <p data-i18n="project_mappings.description">Map a source project name to a target project name. All project charts and daily project breakdowns will aggregate by the target name.</p>
+            <div class="page-head-eyebrow" data-i18n="project_mappings.eyebrow">Mappings</div>
+            <h1 data-i18n="project_mappings.title">Normalize project and editor names</h1>
+            <p data-i18n="project_mappings.description">Merge renamed folders and editor variants into stable names used across charts and breakdowns.</p>
           </div>
         </section>
 
@@ -77,11 +77,11 @@
             <form id="project-mapping-form" class="project-mapping-form">
               <label class="project-mapping-field">
                 <span data-i18n="project_mappings.source_label">Source project</span>
-                <input id="project-mapping-source" class="project-mapping-input" type="text" maxlength="255" required aria-required="true" />
+                <select id="project-mapping-source" class="project-mapping-input" required aria-required="true"></select>
               </label>
               <label class="project-mapping-field">
                 <span data-i18n="project_mappings.target_label">Target project</span>
-                <input id="project-mapping-target" class="project-mapping-input" type="text" maxlength="255" required aria-required="true" />
+                <select id="project-mapping-target" class="project-mapping-input" required aria-required="true"></select>
               </label>
               <div class="project-mapping-actions">
                 <button id="project-mapping-submit" class="nav-sync-btn primary" type="submit">
@@ -98,6 +98,36 @@
               <span id="project-mapping-count" class="project-mapping-count">0</span>
             </div>
             <div id="project-mapping-list" class="project-mapping-list"></div>
+          </div>
+        </section>
+
+        <section class="project-mappings-layout editor-mappings-layout">
+          <div class="detail-card project-mapping-form-card">
+            <h2 data-i18n="editor_mappings.form_title">Add or update mapping</h2>
+            <form id="editor-mapping-form" class="project-mapping-form">
+              <label class="project-mapping-field">
+                <span data-i18n="editor_mappings.source_label">Source editor</span>
+                <select id="editor-mapping-source" class="project-mapping-input" required aria-required="true"></select>
+              </label>
+              <label class="project-mapping-field">
+                <span data-i18n="editor_mappings.target_label">Target editor</span>
+                <select id="editor-mapping-target" class="project-mapping-input" required aria-required="true"></select>
+              </label>
+              <div class="project-mapping-actions">
+                <button id="editor-mapping-submit" class="nav-sync-btn primary" type="submit">
+                  <span data-i18n="editor_mappings.save">Save mapping</span>
+                </button>
+              </div>
+            </form>
+            <div id="editor-mapping-feedback" class="project-mapping-feedback" aria-live="polite"></div>
+          </div>
+
+          <div class="detail-card project-mapping-list-card">
+            <div class="project-mapping-list-head">
+              <h2 data-i18n="editor_mappings.list_title">Current mappings</h2>
+              <span id="editor-mapping-count" class="project-mapping-count">0</span>
+            </div>
+            <div id="editor-mapping-list" class="project-mapping-list"></div>
           </div>
         </section>
       </main>

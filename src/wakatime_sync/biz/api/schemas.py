@@ -106,3 +106,26 @@ class ProjectMappingsResponse(BaseModel):
 class ProjectMappingUpsertRequest(BaseModel):
     source_project: str
     target_project: str
+
+
+class MappingOptionItem(BaseModel):
+    name: str
+    count: int
+
+
+class MappingOptionsResponse(BaseModel):
+    options: list[MappingOptionItem]
+
+
+class EditorMappingItem(BaseModel):
+    source_editor: str
+    target_editor: str
+
+
+class EditorMappingsResponse(BaseModel):
+    mappings: list[EditorMappingItem]
+
+
+class EditorMappingUpsertRequest(BaseModel):
+    source_editor: str
+    target_editor: str
