@@ -61,6 +61,7 @@ let cachedCurrentDays = [];
 let cachedPrevMonthDays = [];
 let projectMappingOptions = [];
 let editorMappingOptions = [];
+let mappedEditorSources = new Set();
 let syncHistoryRuns = [];
 
 const dailyBreakdownCache = new Map();
@@ -1168,7 +1169,7 @@ function setEditorMappingLoadingState(isLoading) {
   }
 }
 
-function updateSelectOptions(selectEl, options, placeholder, preserveValue = '') {
+function updateSelectOptions(selectEl, options, placeholder, preserveValue = '', getOptionMeta = null) {
   if (!selectEl) {
     return;
   }
@@ -1178,7 +1179,9 @@ function updateSelectOptions(selectEl, options, placeholder, preserveValue = '')
   const optionHtml = safeOptions.map((item) => {
     const name = item?.name || '';
     const count = Number(item?.count || 0);
-    return `<option value="${escapeHtml(name)}">${escapeHtml(`${name} (${fmtNumber(count)})`)}</option>`;
+    const meta = typeof getOptionMeta === 'function' ? getOptionMeta(item) : null;
+    const mutedStyle = meta?.muted ? ' style="color: #6e7781;"' : '';
+    return `<option value="${escapeHtml(name)}"${mutedStyle}>${escapeHtml(`${name} (${fmtNumber(count)})`)}</option>`;
   }).join('');
 
   selectEl.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>${optionHtml}`;
@@ -1203,11 +1206,15 @@ function refreshEditorMappingSelects() {
     editorMappingSourceEl,
     editorMappingOptions,
     t('editor_mappings.source_placeholder'),
+    '',
+    (item) => ({ muted: mappedEditorSources.has(item?.name || '') }),
   );
   updateSelectOptions(
     editorMappingTargetEl,
     editorMappingOptions,
     t('editor_mappings.target_placeholder'),
+    '',
+    (item) => ({ muted: mappedEditorSources.has(item?.name || '') }),
   );
 }
 
@@ -1318,8 +1325,13 @@ async function loadEditorMappings() {
 
   try {
     const data = await fetchJson('/api/editor-mappings');
-    renderEditorMappings(data.mappings || []);
+    const safeMappings = Array.isArray(data.mappings) ? data.mappings : [];
+    mappedEditorSources = new Set(safeMappings.map((item) => item?.source_editor || '').filter(Boolean));
+    refreshEditorMappingSelects();
+    renderEditorMappings(safeMappings);
   } catch {
+    mappedEditorSources = new Set();
+    refreshEditorMappingSelects();
     if (editorMappingCountEl) {
       editorMappingCountEl.textContent = '—';
     }
